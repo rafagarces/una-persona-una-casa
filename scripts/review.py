@@ -19,7 +19,14 @@ def clean(x):
    assert isinstance(p,list) and len(p)==2 and all(type(n) in [int,float] and 0<=n<=100 for n in p)
    out.append([round(n,1) for n in p])
   return out
- out={'v':2,'kind':x['kind'],'color':x['color'],'material':x['material'],'outline':pts(x['outline'],3,160),'marks':[]}
+ outline=pts(x['outline'],3,160)
+ # Same degenerate-contour guard as worker and editor: closed ring with real area.
+ area=0
+ for i,p in enumerate(outline):
+  q=outline[i-1];area+=q[0]*p[1]-p[0]*q[1]
+ xs=[p[0] for p in outline];ys=[p[1] for p in outline]
+ assert abs(area/2)>=15 and max(xs)-min(xs)>=4 and max(ys)-min(ys)>=4
+ out={'v':2,'kind':x['kind'],'color':x['color'],'material':x['material'],'outline':outline,'marks':[]}
  marks=x.get('marks') or []
  assert isinstance(marks,list) and len(marks)<=12
  total=0

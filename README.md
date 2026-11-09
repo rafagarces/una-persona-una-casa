@@ -16,7 +16,7 @@ Generador de collages de casas. Sitio estático en GitHub Pages, sin cuentas par
 
 Recursos exclusivos: Worker `casas-de-papel-pieces` y D1 `casas-de-papel-pieces`, en Workers Free. No se usa R2, AI, colas ni un plan de pago. Workers y D1 tienen corte de cuota en Free. No cambiar de plan para evitar errores de cuota.
 
-Límites de la aplicación: 32 KB por petición, contorno de 3 a 160 puntos, hasta 12 marcas de 60 puntos (400 en total), 60 propuestas diarias y 600 en cola privada. Duplicados se reconocen por hash. Los límites de cola/día se comprueban en un INSERT atómico. Un abuso puede llenar la recepción y hacer que los envíos fallen hasta la revisión/otro día, pero generar, dibujar y descargar siguen funcionando. Las cuotas gratuitas de plataforma se comparten con la cuenta: un pico puede afectar a otros Workers de esa cuenta. No se garantiza disponibilidad ilimitada.
+Límites de la aplicación: 32 KB por petición, contorno de 3 a 160 puntos con área mínima real (guarda antidegenerados igual en cliente, worker y revisión: anillo cerrado, área ≥ 15 y caja ≥ 4×4), hasta 12 marcas de 60 puntos (400 en total), 60 propuestas diarias y 600 en cola privada. Duplicados se reconocen por hash. Los límites de cola/día se comprueban en un INSERT atómico. Un abuso puede llenar la recepción y hacer que los envíos fallen hasta la revisión/otro día, pero generar, dibujar y descargar siguen funcionando. Las cuotas gratuitas de plataforma se comparten con la cuenta: un pico puede afectar a otros Workers de esa cuenta. No se garantiza disponibilidad ilimitada.
 
 ## Revisión privada y continuidad
 
