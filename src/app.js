@@ -33,7 +33,7 @@ function onpage(bg){var n=parseInt(bg.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=
 // Portada: el SVG de cada casa (sombras + grano de papel) es lo caro de rasterizar, sobre todo en iPhone.
 // Las próximas casas se componen y rasterizan por adelantado en segundo plano (misma técnica que el visor);
 // pulsar ↻ solo cambia un bitmap ya listo. Si la cola está vacía, se renderiza como antes y se repone.
-var homeQueue=[],homePrepRun=0,HOME_AHEAD=2,homeResizeTimer=0,homePrepBusy=false,homeWaiting=false,paperFailed=false,rasterSlow=false,rasterTimed=false,homeWatchdog=0,lastRasterMs=0,probeDone=false,pressT0=0;
+var paperFailed=false,rasterSlow=false,rasterTimed=false,lastRasterMs=0,probeDone=false,pressT0=0,bankList=null,bankPool=[],bankBag=[],bankPre={},pressBusy=false,bankTimer=0;
 function noteRasterSlow(px){try{localStorage.setItem('casas-raster','slow|'+ASSET_V+'|'+px)}catch(e){}}
 function homePx(){var w=$('card').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function applyHome(seed,background,shared){
@@ -41,87 +41,68 @@ function applyHome(seed,background,shared){
  homeBackground=background;document.body.style.background=background;document.body.style.setProperty('--onpage',onpage(background));
  setText('home-status',shared?'Esta casa incluye una pieza compartida.':'');
 }
-function serveHome(){
- if(!homeWaiting||currentView!=='home')return;
- var px=homePx(),h=null;
- while(homeQueue.length){var q=homeQueue.shift();if(q.px===px){h=q;break}}
- if(h){diagLog('refresh servido bitmap tras '+Math.round(performance.now()-pressT0)+'ms');homeWaiting=false;clearTimeout(homeWatchdog);$('card').replaceChildren(h.cv);applyHome(h.seed,h.background,h.shared)}
-}
+function bankRefill(){while(bankBag.length<3){if(!bankPool.length){bankPool=bankList.slice();for(var i=bankPool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=bankPool[i];bankPool[i]=bankPool[j];bankPool[j]=t}}bankBag.push(bankPool.pop())}}
+function bankPrefetch(){if(!bankList)return;bankRefill();bankBag.slice(0,2).forEach(function(e){if(!bankPre[e.f]){var im=new Image();bankPre[e.f]=im;im.src=e.f}})}
 function fresh(){
- // Pulsar nunca renderiza en cadena: con la cola vacía la casa llega en cuanto termina
- // la rasterización en segundo plano (las pulsaciones seguidas se juntan en una), y el
- // botón y la página siguen respondiendo. Solo sin textura disponible se renderiza directo.
- if(homeWaiting)return;
+ // La portada ya no rasteriza en el dispositivo: cada pulsación sirve una casa preparada
+ // del banco (generado con el mismo renderer y la misma textura, verificado pixel a pixel).
+ // Si la imagen no llega o tarda demasiado, se sirve un render directo como antes.
+ if(pressBusy)return;
  pressT0=performance.now();
- if(!homeQueue.length&&(paperFailed||rasterSlow)){var seed=(Math.random()*4294967296)>>>0;var t0=performance.now();var r=CasasV2.render($('card'),null,seed);diagLog('refresh render directo '+Math.round(performance.now()-t0)+'ms');applyHome(seed,r.background,r.shared);return}
- homeWaiting=true;diagLog('refresh en cola (queue '+homeQueue.length+')');serveHome();prepHome();
- // En motores que rasterizan el SVG en el hilo principal (WebKit) la casa puede no llegar
- // nunca o tardar segundos con la página congelada: si el bitmap no llega a tiempo, se
- // sirve un render directo y no se vuelve a rasterizar en segundo plano en este dispositivo.
- clearTimeout(homeWatchdog);homeWatchdog=setTimeout(function(){
-  if(!homeWaiting)return;
-  rasterSlow=true;noteRasterSlow(homePx());homeQueue.length=0;homeWaiting=false;diagLog('watchdog: bitmap no llego, render directo');
-  var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);
- },4000);
-}
-function prepHome(){
- if(homePrepBusy||currentView!=='home'||!viewerPaperURI||rasterSlow)return;
- var run=homePrepRun,px=homePx();if(!px||homeQueue.length>=HOME_AHEAD&&!homeWaiting)return;
- homePrepBusy=true;
- schedule(function(){
-  if(run!==homePrepRun||currentView!=='home'){homePrepBusy=false;return}
-  var seed=(Math.random()*4294967296)>>>0,tmp=document.createElement('div'),r;
-  viewerHost().appendChild(tmp);
-  try{r=CasasV2.render(tmp,null,seed)}catch(e){homePrepBusy=false;if(tmp.parentNode)tmp.parentNode.removeChild(tmp);return}
-  var svg=tmp.firstChild;
-  if(tmp.remove)tmp.remove();else if(tmp.parentNode)tmp.parentNode.removeChild(tmp);
-  if(!svg){homePrepBusy=false;return}
-  var full=function(){
-   makeBitmap('home-'+seed,svg,px).then(function(cv){
-    homePrepBusy=false;
-    if(!cv||run!==homePrepRun)return;
-    homeQueue.push({seed:seed,cv:cv,px:px,background:r.background,shared:r.shared});
-    serveHome();
-    prepHome();
-   });
+ if(bankList&&bankList.length){
+  pressBusy=true;
+  bankRefill();
+  var e=bankBag.shift();
+  bankRefill();
+  var img=bankPre[e.f];
+  var done=function(ok){
+   clearTimeout(bankTimer);pressBusy=false;
+   if(ok){delete bankPre[e.f];$('card').replaceChildren(img);applyHome(e.seed,e.background,e.shared);diagLog('refresh banco '+e.f+' '+Math.round(performance.now()-pressT0)+'ms')}
+   else{var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);diagLog('refresh render directo (banco no llego)')}
+   bankPrefetch();
   };
-  if(!probeDone){
-   // Sonda de dos puntos (1/64 y 1/16 del area real) antes de la primera rasterizacion
-   // grande: la diferencia entre ambas separa el coste fijo del coste por pixel, y la
-   // extrapolacion decide si este dispositivo rasteriza en segundo plano o sirve renders
-   // directos. Asi la rasterizacion problematica no se ejecuta nunca a tamano real en
-   // motores lentos; el veredicto se recuerda en localStorage.
-   var p1=Math.max(24,Math.round(px/8)),p2=Math.max(48,Math.round(px/4));
-   makeBitmap('probe',svg,p1,true).then(function(){
-    var t1=lastRasterMs;
-    makeBitmap('probe',svg,p2,true).then(function(){
-     probeDone=true;
-     var t2=lastRasterMs,slope=Math.max(0,(t2-t1)/(p2*p2-p1*p1)),est=t2+slope*(px*px-p2*p2);
-     diagLog('sonda '+Math.round(t1)+'/'+Math.round(t2)+'ms px'+p1+'/'+p2+' -> est '+Math.round(est)+'ms '+(est>500||t2>200?'LENTO':'rapido'));
-     if(est>500||t2>200){rasterSlow=true;noteRasterSlow(px)}
-     if(rasterSlow){
-      homePrepBusy=false;
-      if(homeWaiting&&run===homePrepRun&&currentView==='home'){homeWaiting=false;clearTimeout(homeWatchdog);$('card').replaceChildren(svg);applyHome(seed,r.background,r.shared)}
-      return
-     }
-     full();
-    });
-   });
-   return
-  }
-  full();
+  if(img&&img.complete){done(!!img.naturalWidth);return}
+  bankTimer=setTimeout(function(){done(false)},4000);
+  if(!img){img=new Image();bankPre[e.f]=img;img.src=e.f}
+  img.onload=function(){done(true)};
+  img.onerror=function(){done(false)};
+  return
+ }
+ var seed=(Math.random()*4294967296)>>>0;var t0=performance.now();var r=CasasV2.render($('card'),null,seed);diagLog('refresh render directo '+Math.round(performance.now()-t0)+'ms');applyHome(seed,r.background,r.shared);
+}
+function startProbe(){
+ if(probeDone||!viewerPaperURI)return;
+ // Sonda de dos puntos (1/64 y 1/16 del area real): la diferencia entre ambas separa el
+ // coste fijo del coste por pixel y la extrapolacion decide si este dispositivo rasteriza
+ // bitmaps del visor en segundo plano o usa siempre SVG directo. El veredicto 'lento' se
+ // recuerda (mismo build, tamano parecido); el 'rapido' se vuelve a medir en cada carga.
+ var px=homePx()||1065,tmp=document.createElement('div'),r;
+ viewerHost().appendChild(tmp);
+ try{r=CasasV2.render(tmp,null,(Math.random()*4294967296)>>>0)}catch(e){if(tmp.parentNode)tmp.parentNode.removeChild(tmp);return}
+ var svg=tmp.firstChild;
+ if(tmp.remove)tmp.remove();else if(tmp.parentNode)tmp.parentNode.removeChild(tmp);
+ if(!svg)return;
+ var p1=Math.max(24,Math.round(px/8)),p2=Math.max(48,Math.round(px/4));
+ makeBitmap('probe',svg,p1,true).then(function(){
+  var t1=lastRasterMs;
+  makeBitmap('probe',svg,p2,true).then(function(){
+   probeDone=true;
+   var t2=lastRasterMs,slope=Math.max(0,(t2-t1)/(p2*p2-p1*p1)),est=t2+slope*(px*px-p2*p2);
+   diagLog('sonda '+Math.round(t1)+'/'+Math.round(t2)+'ms px'+p1+'/'+p2+' -> est '+Math.round(est)+'ms '+(est>500||t2>200?'LENTO':'rapido'));
+   if(est>500||t2>200){rasterSlow=true;noteRasterSlow(px)}
+   if(viewerSet)prefetchViewer();
+  });
  });
 }
-window.addEventListener('resize',function(){clearTimeout(homeResizeTimer);homeResizeTimer=setTimeout(function(){homePrepRun++;prepHome()},300)});
-document.addEventListener('visibilitychange',function(){if(document.hidden)homePrepRun++;else prepHome()});
-// Primera casa al cargar: render directo para que la portada salga pintada; a partir de ahí, bitmaps.
+// Primera casa al cargar: render directo para que la portada salga pintada sin esperar descargas; a partir de ahí, el banco.
 var firstSeed=(Math.random()*4294967296)>>>0,firstRender=CasasV2.render($('card'),null,firstSeed);
 applyHome(firstSeed,firstRender.background,firstRender.shared);
 $('again').onclick=fresh;
 loadViewerPaper();
+fetch('bank/manifest.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list)&&list.length){bankList=list;bankPrefetch()}}).catch(function(){});
 fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))COMMUNITY_LIST=list.filter(valid).slice(0,600);if(typeof Casas!=='undefined')Casas.setCommunity(COMMUNITY_LIST);CasasV2.setCommunity(COMMUNITY_LIST)}).catch(function(){});
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
-function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();saveDesign();if(rendererAvailable(5))preview();else rendererReady(5).then(function(){preview()})}if(name==='gallery'){paintGallery();loadHouses(true)}if($('content'))$('content').scrollTop=0;window.scrollTo(0,0);if(name!=='home'){homePrepRun++;$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}else{serveHome();prepHome()}}
+function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();saveDesign();if(rendererAvailable(5))preview();else rendererReady(5).then(function(){preview()})}if(name==='gallery'){paintGallery();loadHouses(true)}if($('content'))$('content').scrollTop=0;window.scrollTo(0,0);if(name!=='home'){$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
 var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedGallery=null,renderQueue=[],renderScheduled=false;
 function queueRender(fn){renderQueue.push(fn);if(renderScheduled)return;renderScheduled=true;
@@ -231,7 +212,7 @@ var viewerBitmaps={},viewerBitmapKeys=[],viewerPaperURI=null,viewerPaperTried=fa
 function schedule(fn){if(window.requestIdleCallback)requestIdleCallback(fn,{timeout:400});else setTimeout(fn,80)}
 function loadViewerPaper(){
   if(viewerPaperTried)return;viewerPaperTried=true;
-  try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet)prefetchViewer();prepHome()};fr.onerror=function(){paperFailed=true};fr.readAsDataURL(b)}).catch(function(){paperFailed=true})}catch(e){paperFailed=true}
+  try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet)prefetchViewer();startProbe()};fr.onerror=function(){paperFailed=true};fr.readAsDataURL(b)}).catch(function(){paperFailed=true})}catch(e){paperFailed=true}
 }
 function viewerPx(){var w=$('viewer-art').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function makeBitmap(key,svg,px,probe){

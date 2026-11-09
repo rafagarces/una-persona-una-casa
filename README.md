@@ -79,3 +79,7 @@ Fila de herramientas: Recortar, Lápiz, Cera, Goma. Lápiz y Cera dibujan sobre 
 ## Desarrollo y build
 
 Las fuentes legibles están en `src/` (los seis `renderer-*.js`, `app.js` y `ui-v2.css`). Los archivos servidos en la raíz se generan minificados con `npm run build` (terser + clean-css) y no se editan a mano. Flujo: editar `src/`, ejecutar `npm run build` (o dejar que lo haga la asistencia al desplegar), pasar las pruebas y hacer push de fuentes y generados juntos. Las pruebas (`scripts/test-*.cjs`) se ejecutan sobre los archivos generados en la raíz.
+
+## Banco de la portada
+
+La portada sirve casas preparadas de `bank/` (40 WebP a 1077px con su `manifest.json`: semilla, color de fondo y si incluye pieza compartida), generadas con el propio `renderer-v2` y la textura de papel. Así el móvil no rasteriza SVG con filtros: cada refresh es una imagen ya hecha (~40 KB, con precarga de las dos siguientes) y, si la descarga falla, un render directo como el del arranque. Las casas salen de una baraja sin repetición hasta agotar el banco. Para regenerarlo: sirve el repo en local (`python3 -m http.server 8911`) y ejecuta `node scripts/build-bank.cjs bank` (requiere playwright-core y Chromium headless, solo como herramienta de desarrollo; el banco generado se commitea).

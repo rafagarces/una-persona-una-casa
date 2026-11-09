@@ -47,7 +47,7 @@ main{position:fixed;top:var(--header-space);right:0;bottom:var(--nav-space);left
 
 /* La obra: cada marco fija su tamaño y el contenido (SVG o bitmap) llena siempre el marco; nunca se usa el tamaño intrínseco del bitmap. */
 .art{aspect-ratio:1;display:block}
-.art svg,.art canvas{width:100%;height:100%;display:block}
+.art svg,.art canvas,.art img{width:100%;height:100%;display:block}
 .home>.art{flex:none;width:min(91vw,calc(100svh - 254px - env(safe-area-inset-bottom)),680px)}
 .gallery-card .art{width:100%}
 .stage .art{width:100%;position:absolute;inset:0}
@@ -204,6 +204,6 @@ body:has(#viewer[open]){overflow:hidden}
 <nav class="tabs" aria-label="Secciones"><button id="open-gallery" type="button">Galería</button><button id="open-workshop" type="button">Crea tu casa</button></nav>
 <script src="renderer-v2.js?v=20261109-draw2"></script>
 <script src="renderer-v5.js?v=20261109-draw2"></script>
-<script src="app.js?v=20261109-b2"></script>
+<script src="app.js?v=20261109-bank1"></script>
 </body>
 </html>
