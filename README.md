@@ -40,11 +40,11 @@ Fuentes de límites, comprobadas el 9 noviembre 2026:
 - https://developers.cloudflare.com/d1/platform/pricing/
 - https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits
 
-## Galería de casas completas (v1, rv1)
+## Galería de casas completas (v1, rv1/rv2)
 
 `houses.json` contiene solo casas propuestas mediante el botón "Proponer tu casa" y aprobadas tras revisión. Empieza vacío: no existe histórico recuperable de casas generadas antes. Ni visitar ni refrescar la portada ni dibujar publica nada por sí solo. La propuesta de una casa tampoco incorpora sus recortes al banco de piezas.
 
-Contrato: `{v:1,rv:1,seed:uint32,wall?:pieceV2,door?:pieceV2,roof?:pieceV2,windows:pieceV2[0..4]}`. Al menos un recorte propio. Cada campo debe tener su `kind` correspondiente. Se reserializa solo geometría permitida. `renderer-v1.js` es el motor congelado rv1: no editarlo; una modificación futura necesita rv2 y conservar rv1 para las casas antiguas. Taller, galería y revisión de casas usan el mismo motor y semilla. Las casas con piezas propias no dependen del banco comunitario cambiante.
+Contrato: `{v:1,rv:1|2,seed:uint32,wall?:pieceV2,door?:pieceV2,roof?:pieceV2,windows:pieceV2[0..4]}`. Al menos un recorte propio. Cada campo debe tener su `kind` correspondiente. Se reserializa solo geometría permitida. `renderer-v1.js` conserva rv1 sin cambios. `renderer-v2.js` es el motor nuevo congelado que coloca todas las ventanas propias (hasta4). El taller propone rv2; galería y revisión eligen el motor según rv de cada casa, conservando la composición de rv1. No editar ninguno: una modificación futura necesita rv3. Taller, galería y revisión usan el mismo motor y semilla para cada versión. Las casas con piezas propias no dependen del banco comunitario cambiante.
 
 `POST /submit-house` recibe `{house,consent:true,website:""}` hasta 96 KB. No acepta SVG/HTML, nombres, contactos ni enlaces. Tabla `houses` privada en el D1 existente, ID+SHA256 del cuerpo normalizado. Comparte límites con `pieces`: 60 propuestas/día y 600 pendientes totales, con INSERT atómico y contadores por trigger. Free sigue sin planes/tarjetas nuevos. Pendientes legacy de piezas intactos. Retención privada 30 días.
 

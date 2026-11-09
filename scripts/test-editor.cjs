@@ -7,7 +7,7 @@ function setup(saved){
  const storage={...saved};
  const doc={body:new Node(),activeElement:null,getElementById:get,createElement:()=>new Node(),createElementNS:()=>new Node(),querySelectorAll:s=>s.includes('.kind-x')?clears:s.includes('#kinds')?kinds:[],querySelector:s=>s.includes('data-clear=')?clears.find(x=>s.includes(x.attrs['data-clear'])):null};
  get('workshop').hidden=true;
- const context={document:doc,localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v},Casas:{render:()=>({background:'#eeeeee'})},CasasV1:{render:()=>({background:'#eeeeee'})},fetch:()=>Promise.resolve({ok:true,json:()=>Promise.resolve([])}),setTimeout:()=>1,clearTimeout(){},scrollY:0,URL,Blob,AbortController};
+ const context={document:doc,localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v},Casas:{render:()=>({background:'#eeeeee'})},CasasV1:{render:()=>({background:'#eeeeee'})},CasasV2:{render:()=>({background:'#eeeeee'})},fetch:()=>Promise.resolve({ok:true,json:()=>Promise.resolve([])}),setTimeout:()=>1,clearTimeout(){},scrollY:0,URL,Blob,AbortController};
  context.window={scrollTo(){},addEventListener(){}};vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/../app.js','utf8'),context);get('open-workshop').onclick();
  return {get,kinds,clears,storage,design:()=>JSON.parse(storage['casas-design-v1']).design,draw(){for(const p of [[10,10],[90,10],[90,90],[10,90],[10,10]]){get('drawing').onpointerdown({button:0,clientX:p[0],clientY:p[1],pointerId:1,preventDefault(){}});get('drawing').onpointerup()}}};
 }

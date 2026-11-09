@@ -23,8 +23,8 @@ export function normalize(x){
 }
 // Whole-house proposals (v1): the visitor's own composed house, pinned to a render version and seed.
 export function normalizeHouse(x){
- if(!x||x.v!==1||x.rv!==1||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295)throw Error('format');
- const out={v:1,rv:1,seed:x.seed};
+ if(!x||x.v!==1||![1,2].includes(x.rv)||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295)throw Error('format');
+ const out={v:1,rv:x.rv,seed:x.seed};
  for(const k of ['wall','door','roof']){
   if(x[k]==null)continue;
   const p=normalize(x[k]);if(p.kind!==k)throw Error('format');

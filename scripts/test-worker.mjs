@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import worker,{normalize,normalizeHouse} from '../backend/worker.mjs';
+const p={v:2,kind:'wall',color:'#f0e7d8',material:'pencil',outline:[[10,10],[90,10],[90,90],[10,90]],marks:[]};
+const h={v:1,rv:1,seed:1049771,wall:p,windows:[]};
+assert.deepEqual(normalizeHouse(h),h);
+for(const bad of [{...h,rv:3},{...h,seed:-1},{...h,wall:{...p,kind:'roof'}},{...h,windows:Array(5).fill({...p,kind:'window'})},{v:1,rv:1,seed:0,windows:[]}])assert.throws(()=>normalizeHouse(bad));
+let inserts=0;
+const env={DB:{prepare(sql){return {bind(...args){return {async first(){return null},async run(){assert.match(sql,/intake_queue/);assert.match(sql,/intake_days/);inserts++;return {meta:{changes:1}}}}}}}}};
+const req=(path,data,origin='https://rafagarces.github.io')=>new Request('https://x'+path,{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify(data)});
+assert.equal((await worker.fetch(req('/submit-house',{house:h,consent:true,website:''}),env)).status,201);
+assert.equal((await worker.fetch(req('/submit',{piece:p,consent:true,website:''}),env)).status,201);
+assert.equal((await worker.fetch(req('/submit-house',{house:h,consent:true},'https://bad'),env)).status,403);
+assert.equal((await worker.fetch(req('/submit-house',{house:h}),env)).status,400);
+assert.equal(inserts,2);
+console.log('worker normalization, input validation, shared-cap SQL, both routes: PASS');
