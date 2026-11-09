@@ -30,4 +30,14 @@ const p={v:2,kind:'wall',color:'#c98d45',material:'wax',outline:[[10,10],[90,10]
 console.log('PASS: free wall proportions; exact legacy base+marks+backup, tint-only edit+undo');
 h=setup();h.kinds[0].onclick();for(let i=0;i<24;i++)h.draw();assert.equal(h.state().layers[0].pieces.length,24);h.draw();assert.equal(h.state().layers[0].pieces.length,24);assert.match(h.get('draft-note').textContent,/24 recortes/);
 console.log('PASS: 24 new cutouts total enforced without deleting previous work');
+// Pencil/wax/eraser over the finished house: separate global ink layer, one undo history, saved and published with the house.
+h=setup();assert.equal(h.get('tool-pencil').disabled,true);h.kinds[0].onclick();h.draw();assert.equal(h.get('tool-pencil').disabled,false);const piecesBefore=JSON.stringify(h.state().layers);
+const stroke=(pts)=>{const d=h.get('drawing');d.onpointerdown(ev(...pts[0]));for(const p of pts.slice(1))d.onpointermove(ev(...p));d.onpointerup()};
+h.get('tool-pencil').onclick();stroke([[5,5],[20,10],[40,30],[60,30]]);assert.equal(h.state().ink.length,1);assert.equal(h.state().ink[0].k,'p');assert.equal(JSON.stringify(h.state().layers),piecesBefore);
+h.get('tool-wax').onclick();h.get('waxes').children[3].onclick();stroke([[10,80],[50,85],[90,80]]);assert.equal(h.state().ink.length,2);assert.equal(h.state().ink[1].c,'#4a6a9e');
+h.get('drawing').onpointerdown(ev(30,30));h.get('drawing').onpointermove(ev(40,40));h.get('drawing').onlostpointercapture();assert.equal(h.state().ink.length,2);
+h.get('tool-eraser').onclick();stroke([[48,85],[52,85]]);assert.equal(h.state().ink.length,1);h.get('undo').onclick();assert.equal(h.state().ink.length,2);h.get('undo').onclick();assert.equal(h.state().ink.length,1);
+await h.get('submit-house').onclick();let inkSent=JSON.parse(h.writes.at(-1).body);assert.equal(inkSent.house.ink.length,1);assert.equal(inkSent.house.rv,4);
+h.get('tool-cut').onclick();h.get('confirm-clear')&&0;
+console.log('PASS: ink layer: pencil/wax/eraser, cancel adds nothing, one undo history, pieces untouched, saved and sent with the house');
 })().catch(e=>{console.error(e);process.exit(1)});

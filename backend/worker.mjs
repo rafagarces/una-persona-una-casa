@@ -22,6 +22,16 @@ export function normalize(x){
  return {v:2,kind:x.kind,color:x.color,material:x.material,outline,marks};
 }
 // Whole-house proposals (v1): the visitor's own composed house, pinned to a render version and seed.
+const WAXES=PAPERS,GRAPHITE='#3a3940';
+// Freehand pencil/wax strokes drawn over a finished rv4 house: closed palettes, bounded counts, geometry only.
+export function normalizeInk(a){
+ if(!Array.isArray(a)||a.length>40)throw Error('format');let total=0;
+ return a.map(s=>{
+  if(!s||!(s.k==='p'&&s.c===GRAPHITE||s.k==='w'&&WAXES.includes(s.c))||!Array.isArray(s.pts)||s.pts.length<2||s.pts.length>120)throw Error('format');
+  total+=s.pts.length;if(total>1600)throw Error('format');
+  return {k:s.k,c:s.c,pts:s.pts.map(p=>{if(!Array.isArray(p)||p.length!==2||!p.every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=100))throw Error('point');return p.map(n=>Math.round(n*10)/10)})};
+ });
+}
 export function normalizeHouse(x){
  if(x&&x.rv===4){
   if(x.v!==1||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295||!Array.isArray(x.layers)||x.layers.length>4)throw Error('format');
@@ -30,7 +40,7 @@ export function normalizeHouse(x){
   else if(x.tints!=null||x.omit!=null)throw Error('format');
   let count=0;const seen=new Set();
   out.layers=x.layers.map(l=>{if(!l||!['wall','door','roof','window'].includes(l.kind)||seen.has(l.kind)||!Array.isArray(l.pieces)||!l.pieces.length||(count+=l.pieces.length)>24)throw Error('format');seen.add(l.kind);return {kind:l.kind,pieces:l.pieces.map(p=>{const q=normalize(p);if(q.kind!==l.kind)throw Error('format');return q})}});
-  if(!out.base&&!count)throw Error('format');return out;
+  if(!out.base&&!count)throw Error('format');if(x.ink!=null){const ink=normalizeInk(x.ink);if(ink.length)out.ink=ink}return out;
  }
  if(!x||x.v!==1||![1,2,3].includes(x.rv)||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295)throw Error('format');
  const out={v:1,rv:x.rv,seed:x.seed};
