@@ -74,7 +74,7 @@ elif cmd in ['approve','reject']:
 elif cmd=='finalize':
  id,expected=sys.argv[2:4]
  import urllib.request
- bank=json.load(urllib.request.urlopen('https://rafagarces.github.io/casas-de-papel/community.json'))
+ bank=json.load(urllib.request.urlopen('https://rafagarces.github.io/una-persona-una-casa/community.json'))
  assert any(x.get('id')==id for x in bank), 'Not yet published; private proposal kept'
  query('DELETE FROM pieces WHERE id=? AND hash=?',[id,expected])
  print('Published bank verified. Private proposal removed.')
