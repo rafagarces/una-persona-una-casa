@@ -7,9 +7,9 @@ for(const bad of [{...h,rv:3},{...h,seed:-1},{...h,wall:{...p,kind:'roof'}},{...
 let inserts=0;
 const env={DB:{prepare(sql){return {bind(...args){return {async first(){return null},async run(){assert.match(sql,/intake_queue/);assert.match(sql,/intake_days/);inserts++;return {meta:{changes:1}}}}}}}}};
 const req=(path,data,origin='https://rafagarces.github.io')=>new Request('https://x'+path,{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify(data)});
-assert.equal((await worker.fetch(req('/submit-house',{house:h,consent:true,website:''}),env)).status,201);
-assert.equal((await worker.fetch(req('/submit',{piece:p,consent:true,website:''}),env)).status,201);
-assert.equal((await worker.fetch(req('/submit-house',{house:h,consent:true},'https://bad'),env)).status,403);
+assert.equal((await worker.fetch(req('/submit-house',{house:h,action:'propose-for-review',website:''}),env)).status,201);
+assert.equal((await worker.fetch(req('/submit',{piece:p,action:'propose-for-review',website:''}),env)).status,201);
+assert.equal((await worker.fetch(req('/submit-house',{house:h,action:'propose-for-review'},'https://bad'),env)).status,403);
 assert.equal((await worker.fetch(req('/submit-house',{house:h}),env)).status,400);
 assert.equal(inserts,2);
 console.log('worker normalization, input validation, shared-cap SQL, both routes: PASS');

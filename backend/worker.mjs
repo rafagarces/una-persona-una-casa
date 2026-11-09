@@ -52,7 +52,10 @@ export default {async fetch(req,env){
   for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>cap){await reader.cancel();return reply({error:'size'},413)}parts.push(value)}
   const buf=new Uint8Array(size);let i=0;for(const p of parts){buf.set(p,i);i+=p.length}
   const data=JSON.parse(new TextDecoder().decode(buf));
-  if(data.website||data.consent!==true)return reply({error:'consent'},400);
+  // Bounded compatibility for pre-audit tabs until 2026-11-11 00:00 UTC.
+  // Neither field is proof of consent or a security boundary.
+  const legacyAction=data.action===undefined&&data.consent===true&&Date.now()<1794355200000;
+  if(data.website||(data.action!=='propose-for-review'&&!legacyAction))return reply({error:'action'},400);
   const table=path==='/submit-house'?'houses':'pieces';
   const item=path==='/submit-house'?normalizeHouse(data.house):normalize(data.piece),json=JSON.stringify(item),digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(json));
   const hash=[...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('');

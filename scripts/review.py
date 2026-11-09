@@ -48,12 +48,14 @@ def cleanHouse(x):
   p=clean(w);assert p['kind']=='window';out['windows'].append(p)
  assert any(k in out for k in ['wall','door','roof']) or out['windows']
  return out
-cmd=sys.argv[1]
-if cmd=='list':
+def purgeExpired():
  # Purge only this project's expired private intake. No cron on a shared account.
  query('DELETE FROM pieces WHERE created < ?',[int(time.time()*1000)-30*86400000])
  query('DELETE FROM houses WHERE created < ?',[int(time.time()*1000)-30*86400000])
  query('DELETE FROM intake_days WHERE day < ?',[time.strftime('%Y-%m-%d',time.gmtime(time.time()-31*86400))])
+cmd=sys.argv[1]
+if cmd=='list':
+ purgeExpired()
  cursor_ms=int(sys.argv[3]) if len(sys.argv)>3 else 0
  cursor_id=sys.argv[4] if len(sys.argv)>4 else ''
  rows=query('SELECT id,hash,body,created FROM pieces WHERE created>? OR (created=? AND id>?) ORDER BY created,id LIMIT 60',[cursor_ms,cursor_ms,cursor_id])['results']
@@ -75,7 +77,7 @@ items.forEach((row)=>{const a=document.createElement('article'),h=document.creat
  (out/'index.html').write_text(page)
  print(json.dumps({'private_preview':str(out/'index.html'),'pending':len(data),'next_cursor':[rows[-1]['created'],rows[-1]['id']] if len(rows)==60 else None,'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
 elif cmd=='list-houses':
- query('DELETE FROM houses WHERE created < ?',[int(time.time()*1000)-30*86400000])
+ purgeExpired()
  cursor_ms=int(sys.argv[3]) if len(sys.argv)>3 else 0
  cursor_id=sys.argv[4] if len(sys.argv)>4 else ''
  rows=query('SELECT id,hash,body,created FROM houses WHERE created>? OR (created=? AND id>?) ORDER BY created,id LIMIT 60',[cursor_ms,cursor_ms,cursor_id])['results']
