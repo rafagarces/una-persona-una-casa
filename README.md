@@ -58,3 +58,7 @@ Revisión con acceso propio:
 - `python scripts/deploy.py` aplica la ampliación aditiva de esquema y los triggers, luego actualiza el mismo worker. No crea recursos si `backend/config.json` existe.
 
 La guarda editorial para NUEVAS paredes rechaza una proporción entre lados menor de 1:8 antes de sustituir la pared previa; conserva el trazo abierto y permite corregirlo. No se aplica a otras partes finas ni retroactivamente a casas ya recibidas. No cambia normalización del backend ni rv1/rv2.
+
+## rv3 (lienzo directo)
+
+rv1 y rv2 están congelados. rv3 añade recortes en coordenadas exactas del lienzo 0..100 sobre una composición base estable. Solo oculta el rol que se sustituye, sin volver a ajustar/centrar el conjunto. La semilla del borrador se guarda. `base`, opcional, es una casa rv2 normalizada con la misma semilla y sin base anidada: conserva borradores antiguos sin reinterpretarlos. Se guarda además copia no destructiva local `casas-design-rv2-backup`. `tints` solo admite colores de papel de las piezas propias de esa base, sin cambiar su geometría ni sus marcas; `omit` es una lista sin duplicados de hasta cuatro roles para quitar piezas. Las ventanas visibles propias son como máximo cuatro: al añadir una quinta se oculta la más antigua de la base o se elimina la más antigua de las nuevas. El cuerpo de envío sigue limitado a 96000 bytes, cuotas60/día600cola y caducidad30d intactas. Como máximo se guardan7 piezas base+7nuevas, sin recursión.

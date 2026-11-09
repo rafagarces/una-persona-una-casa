@@ -23,8 +23,16 @@ export function normalize(x){
 }
 // Whole-house proposals (v1): the visitor's own composed house, pinned to a render version and seed.
 export function normalizeHouse(x){
- if(!x||x.v!==1||![1,2].includes(x.rv)||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295)throw Error('format');
+ if(!x||x.v!==1||![1,2,3].includes(x.rv)||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295)throw Error('format');
  const out={v:1,rv:x.rv,seed:x.seed};
+ if(x.base!=null){if(x.rv!==3||x.base.rv!==2||x.base.base!=null||x.base.seed!==x.seed)throw Error('format');out.base=normalizeHouse(x.base)}
+ if(x.tints!=null){
+  if(x.rv!==3||!out.base||typeof x.tints!=='object'||Array.isArray(x.tints))throw Error('format');out.tints={};
+  if(Object.keys(x.tints).some(k=>!['wall','door','roof','windows'].includes(k)))throw Error('format');
+  for(const k of ['wall','door','roof'])if(x.tints[k]!=null){if(!out.base[k]||!PAPERS.includes(x.tints[k]))throw Error('format');out.tints[k]=x.tints[k]}
+  if(x.tints.windows!=null){if(!Array.isArray(x.tints.windows)||x.tints.windows.length>out.base.windows.length||!x.tints.windows.every(c=>c==null||PAPERS.includes(c)))throw Error('format');out.tints.windows=x.tints.windows.map(c=>c??null)}
+ }
+ if(x.omit!=null){if(x.rv!==3||!Array.isArray(x.omit)||x.omit.length>4||new Set(x.omit).size!==x.omit.length||!x.omit.every(k=>['wall','door','roof','window'].includes(k)))throw Error('format');out.omit=x.omit.slice()}
  for(const k of ['wall','door','roof']){
   if(x[k]==null)continue;
   const p=normalize(x[k]);if(p.kind!==k)throw Error('format');
@@ -33,7 +41,7 @@ export function normalizeHouse(x){
  if(x.windows==null)x.windows=[];
  if(!Array.isArray(x.windows)||x.windows.length>4)throw Error('format');
  out.windows=x.windows.map(w=>{const p=normalize(w);if(p.kind!=='window')throw Error('format');return p});
- if(!out.wall&&!out.door&&!out.roof&&!out.windows.length)throw Error('format');
+ if(!out.base&&!out.wall&&!out.door&&!out.roof&&!out.windows.length)throw Error('format');
  return out;
 }
 export default {async fetch(req,env){
