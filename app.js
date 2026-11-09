@@ -114,7 +114,7 @@ var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261109-draw1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4'},rendererLoads={},rendererTries={};
+var ASSET_V='20261109-draw2',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4'},rendererLoads={},rendererTries={};
 function rendererNeed(rv){return rv===5?4:rv}
 function rendererAvailable(rv){var g=RENDERER_GLOBAL[rendererNeed(rv)];return !g||!!window[g]}
 function rendererFailed(rv){var g=RENDERER_GLOBAL[rendererNeed(rv)];return g&&!window[g]&&(rendererTries[rendererNeed(rv)]||0)>=3}
@@ -309,16 +309,18 @@ function eraseStroke(s,p){
 }
 function eraseAt(p){
  erasing.at=p;
- var out=[],touched=false;
+ var out=[],touched=false,blocked=false;
  for(var i=0;i<ink.length;i++){
   var parts=eraseStroke(ink[i],p);
   if(parts.length===1&&parts[0]===ink[i]){out.push(ink[i]);continue}
+  // Con el cupo de trazos lleno no cabe partir: se conserva el trazo original intacto.
+  if(out.length+parts.length+(ink.length-i-1)>40){out.push(ink[i]);blocked=true;continue}
   touched=true;
-  // Con el cupo de trazos lleno no cabe partir: se retira el trazo tocado entero.
-  if(out.length+parts.length+(ink.length-i-1)>40)continue;
   for(var j=0;j<parts.length;j++)out.push(parts[j]);
  }
  paint();
+ if(blocked)setText('draft-note','Ya no caben más trazos para partir este: borra alguno entero o usa Deshacer.');
+ else if(touched)setText('draft-note','');
  if(!touched)return;
  if(!erasing.did){checkpoint();erasing.did=true}
  ink=out;preview();
