@@ -6,3 +6,5 @@ CREATE TABLE IF NOT EXISTS intake_days(day TEXT PRIMARY KEY,n INTEGER NOT NULL);
 INSERT OR IGNORE INTO intake_days(day,n) SELECT day,count(*) FROM (SELECT day FROM pieces UNION ALL SELECT day FROM houses) GROUP BY day;
 CREATE TABLE IF NOT EXISTS intake_queue(id INTEGER PRIMARY KEY CHECK(id=1),n INTEGER NOT NULL);
 INSERT OR IGNORE INTO intake_queue(id,n) VALUES(1,(SELECT (SELECT count(*) FROM pieces)+(SELECT count(*) FROM houses)));
+CREATE INDEX IF NOT EXISTS pieces_created_id ON pieces(created,id);
+CREATE INDEX IF NOT EXISTS houses_created_id ON houses(created,id);

@@ -54,7 +54,9 @@ if cmd=='list':
  query('DELETE FROM pieces WHERE created < ?',[int(time.time()*1000)-30*86400000])
  query('DELETE FROM houses WHERE created < ?',[int(time.time()*1000)-30*86400000])
  query('DELETE FROM intake_days WHERE day < ?',[time.strftime('%Y-%m-%d',time.gmtime(time.time()-31*86400))])
- rows=query('SELECT id,hash,body,created FROM pieces ORDER BY created LIMIT 60')['results']
+ cursor_ms=int(sys.argv[3]) if len(sys.argv)>3 else 0
+ cursor_id=sys.argv[4] if len(sys.argv)>4 else ''
+ rows=query('SELECT id,hash,body,created FROM pieces WHERE created>? OR (created=? AND id>?) ORDER BY created,id LIMIT 60',[cursor_ms,cursor_ms,cursor_id])['results']
  out=pathlib.Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
  data=[]
  legacy=0
@@ -71,11 +73,12 @@ if cmd=='list':
  page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de piezas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:180px;height:180px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada</h1><p>Datos no fiables de visitantes. Revisar el recorte aislado y ambas casas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces, firmas y contenidos que no sean piezas de casa. La casa debe componer sobre la silueta real de la pieza (pared, puerta, ventana o tejado). Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';
 items.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · '+row.piece.kind+' · '+row.piece.material;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code,r);document.querySelector('#items').append(a);const raw=document.createElement('div');raw.className='house';raw.style.background='#f7f7f7';raw.innerHTML=Casas.pieceSVG(row.piece);r.append(raw);[10304,10975].forEach(seed=>{const d=document.createElement('div');d.className='house';r.append(d);let out=Casas.render(d,row.piece,seed);d.style.background=out.background});});</script></html>'''
  (out/'index.html').write_text(page)
- print(json.dumps({'private_preview':str(out/'index.html'),'pending':len(data),'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
+ print(json.dumps({'private_preview':str(out/'index.html'),'pending':len(data),'next_cursor':[rows[-1]['created'],rows[-1]['id']] if len(rows)==60 else None,'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
 elif cmd=='list-houses':
  query('DELETE FROM houses WHERE created < ?',[int(time.time()*1000)-30*86400000])
- cursor=int(sys.argv[3]) if len(sys.argv)>3 else 0
- rows=query('SELECT id,hash,body,created FROM houses WHERE created>? ORDER BY created,id LIMIT 60',[cursor])['results']
+ cursor_ms=int(sys.argv[3]) if len(sys.argv)>3 else 0
+ cursor_id=sys.argv[4] if len(sys.argv)>4 else ''
+ rows=query('SELECT id,hash,body,created FROM houses WHERE created>? OR (created=? AND id>?) ORDER BY created,id LIMIT 60',[cursor_ms,cursor_ms,cursor_id])['results']
  out=pathlib.Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
  data=[]
  for row in rows:
@@ -88,7 +91,7 @@ elif cmd=='list-houses':
  payload=json.dumps(data).replace('<','\\u003c')
  page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de casas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:150px;height:150px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada de casas</h1><p>Datos no fiables de visitantes. Revisar la casa completa y cada recorte aislado: pueden aparecer mensajes o símbolos solo al combinar piezas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces y firmas. Aprobar la casa NO incorpora sus piezas al banco de piezas. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';\nitems.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · casa rv'+row.house.rv+' semilla '+row.house.seed;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code);const d=document.createElement('div');d.className='house';a.append(d);const design={wall:row.house.wall||null,door:row.house.door||null,roof:row.house.roof||null,windows:row.house.windows};let out=Casas.render(d,design,row.house.seed);d.style.background=out.background;a.append(r);['wall','roof','door'].forEach(k=>{if(row.house[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=Casas.pieceSVG(row.house[k]);r.append(p)}});row.house.windows.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=Casas.pieceSVG(w);r.append(p)});document.querySelector('#items').append(a)});</script></html>'''
  (out/'houses.html').write_text(page)
- print(json.dumps({'private_preview':str(out/'houses.html'),'pending':len(data),'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
+ print(json.dumps({'private_preview':str(out/'houses.html'),'pending':len(data),'next_cursor':[rows[-1]['created'],rows[-1]['id']] if len(rows)==60 else None,'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
 elif cmd in ['approve','reject']:
  id,expected=sys.argv[2:4]
  assert re.fullmatch(r'[a-f0-9-]{36}',id) and re.fullmatch(r'[a-f0-9]{64}',expected)

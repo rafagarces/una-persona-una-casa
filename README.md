@@ -49,7 +49,7 @@ Contrato: `{v:1,rv:1,seed:uint32,wall?:pieceV2,door?:pieceV2,roof?:pieceV2,windo
 `POST /submit-house` recibe `{house,consent:true,website:""}` hasta 96 KB. No acepta SVG/HTML, nombres, contactos ni enlaces. Tabla `houses` privada en el D1 existente, ID+SHA256 del cuerpo normalizado. Comparte límites con `pieces`: 60 propuestas/día y 600 pendientes totales, con INSERT atómico y contadores por trigger. Free sigue sin planes/tarjetas nuevos. Pendientes legacy de piezas intactos. Retención privada 30 días.
 
 Revisión con acceso propio:
-- `python scripts/review.py list /ruta/privada` y `list-houses /ruta/privada [created_cursor_ms]`. Revisar casas completas y cada recorte aislado. Nunca publicar las páginas privadas. `list-houses` lee lotes de 60 en orden creado/ID; continuar con el timestamp del último lote. No asumir aprobación de la casa por sus recortes.
+- `python scripts/review.py list /ruta/privada` y `list-houses /ruta/privada [created_cursor_ms cursor_id]`. Revisar casas completas y cada recorte aislado. Nunca publicar las páginas privadas. `list-houses` lee lotes de 60 en orden creado/ID; continuar con el par timestamp+ID devuelto en next_cursor. No asumir aprobación de la casa por sus recortes.
 - `approve-house UUID SHA256` o `reject-house UUID SHA256`. Se verifica cuerpo+hash. Solo `approve-house` agrega geometría normalizada a `houses.json`; nunca a `community.json`.
 - Commit y push al repo `rafagarces/una-persona-una-casa`. Tras verificar casa y banco servido, `finalize-house UUID SHA256` comprueba la composición exacta en el banco público antes de eliminar la copia privada.
 - `withdraw-house UUID`, commit, publicar y verificar. Las copias descargadas no pueden retirarse.
