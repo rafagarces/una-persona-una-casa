@@ -9,9 +9,9 @@ var draft={v:2,kind:'window',color:PAPERS[3],material:'pencil',outline:null,mark
 var drawing=null,pending=[],cursor=[50,50],kbUsed=false,previewSeed=1049771,saveTimer,previewTimer,submitBusy=false,submittedMap={},previousFocus,homeScroll=0;
 var KEY='casas-piece-v2',DESIGN_KEY='casas-design-v1';
 try{var saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved&&valid(saved))draft=saved}catch(e){}
-var design={wall:null,door:null,roof:null,windows:[]};
-try{var savedDesign=JSON.parse(localStorage.getItem(DESIGN_KEY)||'null');if(savedDesign){['wall','door','roof'].forEach(function(k){if(valid(savedDesign[k]))design[k]=savedDesign[k]});if(Array.isArray(savedDesign.windows))design.windows=savedDesign.windows.filter(valid).slice(0,4)}}catch(e){}
-function saveDesign(){try{localStorage.setItem(DESIGN_KEY,JSON.stringify(design))}catch(e){}}
+var design={wall:null,door:null,roof:null,windows:[]},lastAdded=null;
+try{var savedDesign=JSON.parse(localStorage.getItem(DESIGN_KEY)||'null');if(savedDesign){var sd=savedDesign.design||savedDesign;['wall','door','roof'].forEach(function(k){if(valid(sd[k]))design[k]=sd[k]});if(Array.isArray(sd.windows))design.windows=sd.windows.filter(valid).slice(0,4);if(valid(savedDesign.lastAdded))lastAdded=savedDesign.lastAdded}}catch(e){}
+function saveDesign(){try{localStorage.setItem(DESIGN_KEY,JSON.stringify({design:design,lastAdded:lastAdded}))}catch(e){}}
 function designCount(){return (design.wall?1:0)+(design.door?1:0)+(design.roof?1:0)+design.windows.length}
 var KIND_NAME={wall:'Pared',door:'Puerta',window:'Ventana',roof:'Tejado'},KIND_ART={wall:'la pared',door:'la puerta',window:'la ventana',roof:'el tejado'};
 try{if(localStorage.getItem('casas-piece-v1'))$('legacy-note').hidden=false}catch(e){}
@@ -50,8 +50,7 @@ function designActive(){
   return (d.wall||d.door||d.roof||d.windows.length)?d:null;
 }
 function syncKinds(){document.querySelectorAll('#kinds .tool').forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-kind')===draft.kind))})}
-var lastAdded=null;
-function proposeTarget(){return ready()?draft:lastAdded}
+function proposeTarget(){if(ready())return draft;if(lastAdded)return lastAdded;return design.windows[design.windows.length-1]||design.door||design.roof||design.wall||null}
 function controls(){
   var has=pending.length>0||draft.marks.length>0||ready();
   $('undo').disabled=!has;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
@@ -60,7 +59,7 @@ function controls(){
   $('submit-piece').disabled=!pt||submitBusy||!!submittedMap[JSON.stringify(pt)];
   helpText();
 }
-function changed(){setText('send-status','');controls();clearTimeout(saveTimer);saveTimer=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(draft));setText('draft-note','Tu borrador se guarda solo en este navegador.')}catch(e){setText('draft-note','Este navegador no deja guardar el borrador. Descarga tu pieza antes de salir.')}},150);clearTimeout(previewTimer);previewTimer=setTimeout(preview,220);}
+function changed(){setText('send-status','');controls();clearTimeout(saveTimer);saveTimer=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch(e){setText('draft-note','Este navegador no deja guardar el borrador. Descarga tu pieza antes de salir.')}},150);clearTimeout(previewTimer);previewTimer=setTimeout(preview,220);}
 function el(name,attrs){var n=document.createElementNS(SVGNS,name);for(var k in attrs)n.setAttribute(k,attrs[k]);return n}
 function ptsToD(pts,close){return 'M'+pts.map(function(p){return p.join(' ')}).join('L')+(close?'Z':'')}
 var GUIDES={door:'M26 92V40A24 24 0 0 1 74 40V92Z',wall:'M12 12H88V88H12Z',window:'M22 22H78V78H22Z',roof:'M14 76 L36 34 H64 L86 76 Z'};
@@ -155,7 +154,7 @@ $('undo').onclick=function(){
 $('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){resetCanvas();paint();changed();$('clear-dialog').close()};
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},60000)}
 async function svgPNG(svg,name,status,bgc){var copy=svg.cloneNode(true);var fill=bgc||(svg.closest('#card')?homeBackground:null);if(fill){var bg=document.createElementNS(SVGNS,'rect');bg.setAttribute('width','100');bg.setAttribute('height','100');bg.setAttribute('fill',fill);copy.insertBefore(bg,copy.firstChild)}var markup=new XMLSerializer().serializeToString(copy),blob=new Blob([markup],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);try{var img=new Image();await new Promise(function(resolve,reject){img.onload=resolve;img.onerror=reject;img.src=url});var canvas=document.createElement('canvas');canvas.width=canvas.height=1800;canvas.getContext('2d').drawImage(img,0,0,1800,1800);var png=await new Promise(function(resolve){canvas.toBlob(resolve,'image/png')});if(!png)throw Error();downloadBlob(png,name+'.png');setText(status,'Imagen preparada. Si no se descarga, prueba mantener pulsada la imagen o usa otro navegador.')}catch(e){downloadBlob(blob,name+'.svg');setText(status,'Este navegador no pudo crear el PNG. Se ha preparado el collage en SVG.')}finally{URL.revokeObjectURL(url)}}
-$('save-design').onclick=function(){var svg=$('preview').querySelector('svg');if(svg)svgPNG(svg,'mi-casa-de-papel','preview-status',previewBackground)};
+$('save-design').onclick=function(){var svg=$('preview').querySelector('svg');if(svg)svgPNG(svg,'mi-casa','preview-status',previewBackground)};
 $('submit-piece').onclick=async function(){var piece=proposeTarget();if(submitBusy||!piece)return;submitBusy=true;controls();setText('send-status','Enviando tu pieza…');var snapshot=JSON.stringify(piece),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
  try{var r=await fetch(ENDPOINT+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({piece:JSON.parse(snapshot),consent:true,website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id)throw new Error(result.error||'unavailable');submittedMap[snapshot]=true;setText('send-status','Pieza recibida para revisión. Todavía no está publicada. Referencia '+result.id.slice(0,8)+'. La pieza sigue en tu casa.');try{localStorage.setItem('casas-last-submission',JSON.stringify({id:result.id,time:Date.now()}))}catch(e){}}
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu pieza sigue aquí; descárgala o prueba otro día.':'No hemos podido confirmar el envío. Tu pieza sigue aquí. Puedes reintentarlo: no se duplicará la misma pieza.';setText('send-status',text)}finally{clearTimeout(timer);submitBusy=false;controls();}};
