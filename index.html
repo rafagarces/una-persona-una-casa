@@ -67,7 +67,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 
 @media(max-width:760px){
  .panel{padding:10px 12px 14px}
- .panel .intro{font-size:14px;line-height:1.35;min-height:38px;margin:0 0 6px}
+ .panel .intro{font-size:14px;line-height:1.35;margin:0 0 6px}
  .field{margin:4px 0;gap:0}
  .field .label,#paper-name{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
  .kind-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:100%}
@@ -110,7 +110,7 @@ button.gallery-card{border:0;min-height:0;padding:8px;font-weight:400}
 .viewer-btn:hover{background:transparent;text-decoration:underline;text-underline-offset:4px}
 #viewer button:focus-visible{outline:3px solid var(--onpage,#252525);outline-offset:3px}
 body:has(#viewer[open]){overflow:hidden}
-.tools{display:grid;gap:4px;grid-template-columns:repeat(3,minmax(0,1fr))}.tools.modes{grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 4px}.tools.actions{margin:0 0 6px;grid-template-columns:repeat(4,minmax(0,1fr))}.tools.actions #close-outline{grid-column:span 2}#waxes{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;margin:2px 0}.panel .intro{min-height:3.2em}#papers,#waxes{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;width:100%;margin:0}#papers .swatch,#waxes .swatch{width:100%;padding:10px 0}.swap{display:grid}.swap>div{grid-area:1/1}#draw-ui{align-self:start}
+.tools{display:grid;gap:4px;grid-template-columns:repeat(3,minmax(0,1fr))}.tools.modes{grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 4px}.tools.actions{margin:0 0 6px;grid-template-columns:repeat(4,minmax(0,1fr))}.tools.actions #close-outline{grid-column:span 2}#waxes{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;margin:2px 0}#papers,#waxes{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;width:100%;margin:0}#papers .swatch,#waxes .swatch{width:100%;padding:10px 0}.swap{display:grid}.swap>div{grid-area:1/1}#draw-ui{align-self:start}
 </style>
 </head>
 <body>
@@ -138,7 +138,7 @@ body:has(#viewer[open]){overflow:hidden}
 <div class="swap"><div id="cut-ui"><div class="field"><span class="label" id="kind-label">Pieza</span><div id="kinds" class="kind-picker" role="group" aria-labelledby="kind-label"><span class="kindwrap"><button type="button" class="tool" data-kind="wall" aria-pressed="false">Pared</button><button type="button" class="kind-x" data-clear="wall" aria-label="Quitar la capa de pared" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="door" aria-pressed="false">Puerta</button><button type="button" class="kind-x" data-clear="door" aria-label="Quitar la capa de puerta" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="window" aria-pressed="true">Ventana</button><button type="button" class="kind-x" data-clear="window" aria-label="Quitar la capa de ventanas" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="roof" aria-pressed="false">Tejado</button><button type="button" class="kind-x" data-clear="roof" aria-label="Quitar la capa de tejado" hidden>×</button></span></div></div>
 <div class="field"><span class="label" id="paper-label">Papel</span> <span id="paper-name" aria-live="polite"></span><div id="papers" class="swatches" role="group" aria-labelledby="paper-label"></div></div>
 </div>
-<div id="draw-ui" style="visibility:hidden"><div id="waxes" class="swatches" role="group" aria-label="Color de cera" style="visibility:hidden"></div></div></div>
+<div id="draw-ui" style="display:none"><div id="waxes" class="swatches" role="group" aria-label="Color de cera"></div></div></div>
 <p class="draft-note" id="draft-note" role="status" aria-live="polite">Tu casa se guarda solo en este navegador.</p>
 <div class="send-box"><label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label><button class="primary" id="submit-house" type="button" disabled>Publicar</button><p class="send-status" id="house-status" role="status" aria-live="polite"></p></div>
 </div></div>
