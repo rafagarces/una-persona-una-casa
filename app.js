@@ -112,19 +112,73 @@ function renderViewerItem(item){
   if(viewerCacheKeys.length>12)delete viewerCache[viewerCacheKeys.shift()];
   return hit;
 }
+// Viewer bitmaps: rasterizing a house (shadow filters + paper texture) at full size is the expensive part of changing house.
+// Neighbours are rasterized ahead of time to a canvas with the same rasterizer, so stepping only swaps a ready bitmap.
+var viewerBitmaps={},viewerBitmapKeys=[],viewerPaperURI=null,viewerPaperTried=false,viewerPrefetchTimer=0,viewerPrefetchRun=0;
+function schedule(fn){if(window.requestIdleCallback)requestIdleCallback(fn,{timeout:400});else setTimeout(fn,80)}
+function loadViewerPaper(){
+  if(viewerPaperTried)return;viewerPaperTried=true;
+  try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet)prefetchViewer()};fr.readAsDataURL(b)}).catch(function(){})}catch(e){}
+}
+function viewerPx(){var w=$('viewer-art').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
+function makeBitmap(key,svg,px){
+  return new Promise(function(resolve){
+    try{
+      var c=svg.cloneNode(true);c.setAttribute('width',px);c.setAttribute('height',px);
+      var xml=new XMLSerializer().serializeToString(c).replace('href="paper.png"','href="'+viewerPaperURI+'"');
+      var url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();
+      img.onload=function(){
+        try{var cv=document.createElement('canvas');cv.width=cv.height=px;cv.getContext('2d').drawImage(img,0,0,px,px);URL.revokeObjectURL(url);resolve(cv)}catch(e){URL.revokeObjectURL(url);resolve(null)}
+      };
+      img.onerror=function(){URL.revokeObjectURL(url);resolve(null)};
+      img.src=url;
+    }catch(e){resolve(null)}
+  });
+}
+function prefetchViewer(){
+  if(!viewerSet||!viewerPaperURI)return;
+  var run=++viewerPrefetchRun,px=viewerPx();if(!px)return;
+  var n=viewerSet.length,order=[0,1,-1,2,-2].filter(function(o,i,a){return Math.abs(o)<=Math.floor(n/2)||o===0}),base=viewerIndex,keys={};
+  var items=order.map(function(o){return viewerSet[(base+o+n*3)%n]}).filter(function(it){var k=viewerKey(it);if(keys[k])return false;keys[k]=1;return true});
+  (function next(i){
+    if(run!==viewerPrefetchRun||!viewerSet||i>=items.length)return;
+    schedule(function(){
+      if(run!==viewerPrefetchRun||!viewerSet)return;
+      var it=items[i],k=viewerKey(it),have=viewerBitmaps[k];
+      if(have&&have.px===px){next(i+1);return}
+      try{
+        var hit=renderViewerItem(it);
+        if(!hit.svg){next(i+1);return}
+        makeBitmap(k,hit.svg,px).then(function(cv){
+          if(cv&&run===viewerPrefetchRun&&viewerSet){
+            if(!viewerBitmaps[k])viewerBitmapKeys.push(k);
+            viewerBitmaps[k]={cv:cv,px:px};
+            while(viewerBitmapKeys.length>7)delete viewerBitmaps[viewerBitmapKeys.shift()];
+            if(viewerKey(viewerSet[viewerIndex])===k)showViewerBitmap(k);
+          }
+          next(i+1);
+        });
+      }catch(e){next(i+1)}
+    });
+  })(0);
+}
+function showViewerBitmap(k){
+  var b=viewerBitmaps[k],art=$('viewer-art');
+  if(b&&b.px===viewerPx()&&art.firstChild&&art.firstChild.tagName==='svg'&&viewerKey(viewerSet[viewerIndex])===k)art.replaceChildren(b.cv);
+}
 function paintViewer(){
-  var item=viewerSet[viewerIndex],d=$('viewer'),hit;
+  var item=viewerSet[viewerIndex],d=$('viewer'),hit,key=viewerKey(item),bm=viewerBitmaps[key];
   try{
     hit=renderViewerItem(item);
-    if(hit.svg)$('viewer-art').replaceChildren(hit.svg);
+    if(bm&&bm.px===viewerPx())$('viewer-art').replaceChildren(bm.cv);
+    else if(hit.svg)$('viewer-art').replaceChildren(hit.svg);
     d.style.background=hit.background;d.style.setProperty('--onpage',onpage(hit.background));
   }catch(e){if(d.open)d.close();return}
   setText('viewer-label',item.label+', '+(viewerIndex+1)+' de '+viewerSet.length);
   setText('viewer-count',(viewerIndex+1)+' / '+viewerSet.length);
-  if(window.requestIdleCallback)requestIdleCallback(function(){
-    if(!viewerSet||viewerSet.length<2)return;
-    try{renderViewerItem(viewerSet[(viewerIndex+1)%viewerSet.length]);renderViewerItem(viewerSet[(viewerIndex-1+viewerSet.length)%viewerSet.length])}catch(e){}
-  });
+  loadViewerPaper();
+  clearTimeout(viewerPrefetchTimer);
+  viewerPrefetchTimer=setTimeout(prefetchViewer,120);
 }
 function openViewer(set,index,origin){
   if(!set.length)return;viewerSet=set;viewerIndex=index;viewerReturnFocus=origin||null;
@@ -135,7 +189,7 @@ function stepViewer(delta){if(!viewerSet||viewerSet.length<2)return;viewerIndex=
 $('viewer-prev').onclick=function(){stepViewer(-1)};
 $('viewer-next').onclick=function(){stepViewer(1)};
 $('viewer-close').onclick=function(){$('viewer').close()};
-$('viewer').onclose=function(){viewerSet=null;if(viewerReturnFocus&&document.contains(viewerReturnFocus))viewerReturnFocus.focus()};
+$('viewer').onclose=function(){viewerSet=null;viewerPrefetchRun++;clearTimeout(viewerPrefetchTimer);viewerBitmaps={};viewerBitmapKeys=[];if(viewerReturnFocus&&document.contains(viewerReturnFocus))viewerReturnFocus.focus()};
 $('viewer').onkeydown=function(e){if(e.key==='ArrowLeft'){e.preventDefault();stepViewer(-1)}else if(e.key==='ArrowRight'){e.preventDefault();stepViewer(1)}};
 (function(){var start=null,stage=$('viewer-stage');stage.onpointerdown=function(e){if(e.target.closest('button'))return;start={x:e.clientX,y:e.clientY}};stage.onpointerup=function(e){if(!start)return;var dx=e.clientX-start.x,dy=e.clientY-start.y;start=null;if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.4)stepViewer(dx<0?1:-1)};stage.onpointercancel=function(){start=null}})();
 function houseSnapshot(){var h={v:1,rv:5,seed:previewSeed};if(base){h.base=base;if(Object.keys(tints).length)h.tints=tints;if(omit.length)h.omit=omit}h.layers=layers;if(ink.length)h.ink=ink;return JSON.stringify(h)}
