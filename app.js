@@ -114,13 +114,15 @@ var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261109-opt1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4'},rendererLoads={};
+var ASSET_V='20261109-draw1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4'},rendererLoads={},rendererTries={};
 function rendererNeed(rv){return rv===5?4:rv}
 function rendererAvailable(rv){var g=RENDERER_GLOBAL[rendererNeed(rv)];return !g||!!window[g]}
+function rendererFailed(rv){var g=RENDERER_GLOBAL[rendererNeed(rv)];return g&&!window[g]&&(rendererTries[rendererNeed(rv)]||0)>=3}
 function rendererReady(rv){
  var need=rendererNeed(rv),g=RENDERER_GLOBAL[need];
- if(!g||window[g])return Promise.resolve();
- return rendererLoads[need]||(rendererLoads[need]=new Promise(function(res){var s=document.createElement('script');s.src=RENDERER_SRC[need]+'?v='+ASSET_V;s.onload=res;s.onerror=res;document.head.appendChild(s)}));
+ if(!g||window[g]||(rendererTries[need]||0)>=3)return Promise.resolve();
+ // Una descarga fallida limpia la promesa: la siguiente necesidad reintenta (máx. 3 por sesión).
+ return rendererLoads[need]||(rendererLoads[need]=new Promise(function(res){var s=document.createElement('script');rendererTries[need]=(rendererTries[need]||0)+1;s.src=RENDERER_SRC[need]+'?v='+ASSET_V;s.onload=res;s.onerror=function(){delete rendererLoads[need];res()};document.head.appendChild(s)}));
 }
 function rendererFor(rv){return rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:CasasV2}
 function paintCard(grid,item,index,set){
@@ -129,7 +131,7 @@ function paintCard(grid,item,index,set){
   card.onclick=function(){openViewer(set,index,card)};
   var art=document.createElement('div');art.className='art';art.setAttribute('aria-hidden','true');card.appendChild(art);grid.appendChild(card);
   var work=function(){
-    if(!rendererAvailable(item.rv)){rendererReady(item.rv).then(function(){queueRender(work)});return}
+    if(!rendererAvailable(item.rv)){if(rendererFailed(item.rv)){card.remove();return}rendererReady(item.rv).then(function(){queueRender(work)});return}
     // Render in the connected offscreen host: the grid can be display:none (user left the tab) and getBBox needs layout.
     if(item.example)CasasV2.setCommunity([]);
     try{
@@ -264,17 +266,18 @@ $('viewer').onclose=function(){viewerSet=null;viewerPrefetchRun++;clearTimeout(v
 $('viewer').onkeydown=function(e){if(e.key==='ArrowLeft'){e.preventDefault();stepViewer(-1)}else if(e.key==='ArrowRight'){e.preventDefault();stepViewer(1)}};
 (function(){var start=null,stage=$('viewer-stage');stage.onpointerdown=function(e){if(e.target.closest('button'))return;start={x:e.clientX,y:e.clientY}};stage.onpointerup=function(e){if(!start)return;var dx=e.clientX-start.x,dy=e.clientY-start.y;start=null;if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.4)stepViewer(dx<0?1:-1)};stage.onpointercancel=function(){start=null}})();
 function houseSnapshot(){var h={v:1,rv:5,seed:previewSeed};if(base){h.base=base;if(Object.keys(tints).length)h.tints=tints;if(omit.length)h.omit=omit}h.layers=layers;if(ink.length)h.ink=ink;return JSON.stringify(h)}
-var previewBackground='#f7f5f0';function preview(){if($('workshop').hidden)return;var r=CasasV5.render($('preview'),JSON.parse(houseSnapshot()),previewSeed);previewBackground=r.background;$('stage').style.background=r.background}
+var previewBackground='#f7f5f0';function preview(){if($('workshop').hidden)return;if(!rendererAvailable(5)){rendererReady(5).then(function(){preview()});return}var r=CasasV5.render($('preview'),JSON.parse(houseSnapshot()),previewSeed);previewBackground=r.background;$('stage').style.background=r.background}
 function resetCanvas(){pending=[];drawing=null;kbUsed=false}
 function changed(){setText('house-status','');sync();preview();saveDesign()}
-function controls(){var p=selectedPiece();$('undo').disabled=(mode==='cut'&&!pending.length)&&!undoStack.length||mode==='draw'&&!undoStack.length;$('clear').disabled=!pending.length&&!designCount()&&!ink.length;$('close-outline').textContent=p&&!pending.length?'Nuevo recorte':'Cerrar recorte';$('close-outline').disabled=pending.length<3&&!p;$('submit-house').disabled=!designCount()||houseBusy||!!submittedHouses[houseSnapshot()];setText('work-help',mode==='draw'?'':pending.length>=3?'Toca el primer punto para cerrar, o pulsa Cerrar recorte.':p?'Recorte seleccionado. Cambia su papel o pulsa Nuevo recorte para añadir otro.':'Dibuja el contorno: arrastra, o toca punto a punto. Cada recorte se añade a esta capa.')}
+var TOOL_HELP={pencil:'Lápiz: arrastra para dibujar sobre la casa. El trazo queda por encima del papel.',wax:'Cera: arrastra para un trazo grueso de color. Elige la cera abajo.',eraser:'Goma: arrastra sobre lápiz o cera para borrar solo esa zona. No borra el papel.'};
+function controls(){var p=selectedPiece(),canDelete=p&&selected!=='base';$('undo').disabled=(mode==='cut'&&!pending.length)&&!undoStack.length||mode==='draw'&&!undoStack.length;$('clear').disabled=!pending.length&&!designCount()&&!ink.length;$('delete-piece').hidden=!canDelete;$('close-outline').style.gridColumn=canDelete?'auto':'';$('close-outline').textContent=p&&!pending.length?'Nuevo recorte':'Cerrar recorte';$('close-outline').disabled=pending.length<3&&!p;$('submit-house').disabled=!designCount()||houseBusy||!!submittedHouses[houseSnapshot()];setText('work-help',mode==='draw'?(TOOL_HELP[tool]||''):pending.length>=3?'Toca el primer punto para cerrar, o pulsa Cerrar recorte.':p?'Recorte seleccionado. Cambia su papel, elimínalo o pulsa Nuevo recorte para añadir otro.':'Dibuja el contorno: arrastra, o toca punto a punto. Cada recorte se añade a esta capa.')}
 function paintSlots(){document.querySelectorAll('#kinds .tool').forEach(function(b){var k=b.getAttribute('data-kind'),l=layer(k),n=(l?l.pieces.length:0)+(base&&!omit.includes(k)?k==='window'?base.windows.length:base[k]?1:0:0);b.textContent=KIND_NAME[k]+(n>1?' ×'+n:n?' ✓':'');b.setAttribute('aria-pressed',String(k===draft.kind));document.querySelector('.kind-x[data-clear='+k+']').hidden=!n})}
 function paperName(){var p=selectedPiece();setText('paper-name',PAPER_NAMES[PAPERS.indexOf(p?p.color:draft.color)]||'')}
 function paintSwatches(){var p=selectedPiece(),c=p?p.color:draft.color;document.querySelectorAll('#papers .swatch').forEach(function(b,i){b.setAttribute('aria-pressed',String(PAPERS[i]===c))})}
 function sync(){paintSlots();paperName();paintSwatches();controls();paint()}
 function el(name,attrs){var n=document.createElementNS(SVGNS,name);for(var k in attrs)n.setAttribute(k,attrs[k]);return n}
 function ptsToD(pts,close){return 'M'+pts.map(function(p){return p.join(' ')}).join('L')+(close?'Z':'')}
-function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(CasasV5.strokeNode(inkLive,true));return}var p=selectedPiece();if(p&&selected!=='base'){g.appendChild(el('path',{d:ptsToD(p.outline,true),'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:ptsToD(p.outline,true),fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3)g.appendChild(el('path',{d:ptsToD(live,true),fill:draft.color,opacity:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));g.appendChild(el('path',{d:ptsToD(live),'class':'pending'}))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
+function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(CasasV5.strokeNode(inkLive,true));if(erasing&&erasing.at)g.appendChild(el('circle',{cx:erasing.at[0],cy:erasing.at[1],r:ERASE_R,'class':'eraser-tip'}));return}var p=selectedPiece();if(p&&selected!=='base'){g.appendChild(el('path',{d:ptsToD(p.outline,true),'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:ptsToD(p.outline,true),fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3)g.appendChild(el('path',{d:ptsToD(live,true),fill:draft.color,opacity:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));g.appendChild(el('path',{d:ptsToD(live),'class':'pending'}))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
 function point(e){var b=$('drawing').getBoundingClientRect();return [Math.max(0,Math.min(100,Math.round((e.clientX-b.left)/b.width*1000)/10)),Math.max(0,Math.min(100,Math.round((e.clientY-b.top)/b.height*1000)/10))]}
 function perp(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return Math.hypot(p[0]-a[0],p[1]-a[1]);return Math.abs(dy*p[0]-dx*p[1]+b[0]*a[1]-b[1]*a[0])/L}
 function simplify(pts,eps){
@@ -291,12 +294,41 @@ function inside(p,pts){var c=false;for(var i=0,j=pts.length-1;i<pts.length;j=i++
 $('drawing').onpointerdown=function(e){if(e.button&&e.button!==0)return;e.preventDefault();$('drawing').setPointerCapture(e.pointerId);if(mode==='draw'){setText('draft-note','');var q=point(e);if(tool==='eraser'){erasing={did:false};eraseAt(q)}else inkLive={k:tool==='pencil'?'p':'w',c:tool==='pencil'?GRAPHITE:wax,pts:[q]};paint();return}drawing={pts:[point(e)],moved:false};setText('draft-note','')};
 $('drawing').onpointermove=function(e){if(mode==='draw'){if(inkLive){var q=point(e),l=inkLive.pts[inkLive.pts.length-1];if(Math.hypot(l[0]-q[0],l[1]-q[1])>.5&&inkLive.pts.length<500){inkLive.pts.push(q);paint()}}else if(erasing)eraseAt(point(e));return}if(!drawing)return;var p=point(e),last=drawing.pts[drawing.pts.length-1];if(Math.hypot(last[0]-p[0],last[1]-p[1])>1.2&&drawing.pts.length<600){drawing.moved=true;drawing.pts.push(p);paint()}};
 function segDist(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy,t=L?Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L)):0;return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)}
-function eraseAt(p){var keep=ink.filter(function(s){for(var i=0;i<s.pts.length-1;i++)if(segDist(p,s.pts[i],s.pts[i+1])<=3)return false;return true});if(keep.length!==ink.length){if(!erasing.did){checkpoint();erasing.did=true}ink=keep;preview()}}
-function endInk(){if(inkLive){var s=inkLive;inkLive=null;var pts=s.pts.length<2?[s.pts[0],[Math.min(100,s.pts[0][0]+.1),s.pts[0][1]]]:simplify(s.pts,.25),eps=.25;while(pts.length>120){eps*=1.5;pts=simplify(s.pts,eps)}if(ink.length>=40||ink.reduce(function(n,x){return n+x.pts.length},0)+pts.length>1600){setText('draft-note','Ya no caben más trazos.');paint();return}checkpoint();ink=ink.concat([{k:s.k,c:s.c,pts:pts}]);setText('draft-note','');changed();return}if(erasing){var d=erasing.did;erasing=null;if(d)changed();else paint()}}
-function endStroke(){if(mode==='draw'){endInk();return}if(!drawing)return;var d=drawing;drawing=null;if(d.moved&&d.pts.length>=3){finishOutline(d.pts);return}var p=d.pts[0];if(pending.length>=3&&Math.hypot(p[0]-pending[0][0],p[1]-pending[0][1])<=4){finishOutline(pending);return}if(!pending.length&&selected!==null){var l=layer();if(l){for(var i=l.pieces.length-1;i>=0;i--)if(inside(p,l.pieces[i].outline)){selected=i;draft.color=l.pieces[i].color;sync();return}}}selected=null;pending.push(p);sync()}
+// La goma actúa como un borrador real sobre lápiz y cera: quita solo la zona tocada y conserva
+// el resto del trazo (un trazo partido se convierte en dos). Nunca toca el papel recortado.
+var ERASE_R=3;
+function eraseStroke(s,p){
+ var keep=[],run=[s.pts[0]];
+ for(var i=0;i<s.pts.length-1;i++){
+  if(segDist(p,s.pts[i],s.pts[i+1])>ERASE_R)run.push(s.pts[i+1]);
+  else{if(run.length>1)keep.push(run);run=[s.pts[i+1]]}
+ }
+ if(run.length>1)keep.push(run);
+ if(keep.length===1&&keep[0].length===s.pts.length)return [s];
+ return keep.map(function(pts){return {k:s.k,c:s.c,pts:pts}});
+}
+function eraseAt(p){
+ erasing.at=p;
+ var out=[],touched=false;
+ for(var i=0;i<ink.length;i++){
+  var parts=eraseStroke(ink[i],p);
+  if(parts.length===1&&parts[0]===ink[i]){out.push(ink[i]);continue}
+  touched=true;
+  // Con el cupo de trazos lleno no cabe partir: se retira el trazo tocado entero.
+  if(out.length+parts.length+(ink.length-i-1)>40)continue;
+  for(var j=0;j<parts.length;j++)out.push(parts[j]);
+ }
+ paint();
+ if(!touched)return;
+ if(!erasing.did){checkpoint();erasing.did=true}
+ ink=out;preview();
+}
+function endInk(){if(inkLive){var s=inkLive;inkLive=null;var pts=s.pts.length<2?[s.pts[0],[Math.min(100,s.pts[0][0]+.1),s.pts[0][1]]]:simplify(s.pts,.25),eps=.25;while(pts.length>120){eps*=1.5;pts=simplify(s.pts,eps)}if(ink.length>=40||ink.reduce(function(n,x){return n+x.pts.length},0)+pts.length>1600){setText('draft-note','Ya no caben más trazos. Borra alguno con la goma para seguir dibujando.');paint();return}checkpoint();ink=ink.concat([{k:s.k,c:s.c,pts:pts}]);setText('draft-note','');changed();return}if(erasing){var d=erasing.did;erasing=null;if(d)changed();else paint()}}
+function endStroke(){if(mode==='draw'){endInk();return}if(!drawing)return;var d=drawing;drawing=null;if(d.moved&&d.pts.length>=3){finishOutline(d.pts);return}var p=d.pts[0];if(pending.length>=3&&Math.hypot(p[0]-pending[0][0],p[1]-pending[0][1])<=4){finishOutline(pending);return}if(!pending.length&&selected!==null){var l=layer();if(l){for(var i=l.pieces.length-1;i>=0;i--)if(inside(p,l.pieces[i].outline)){selected=i;draft.color=l.pieces[i].color;sync();return}}selected=null;sync();return}selected=null;pending.push(p);sync()}
 $('drawing').onpointerup=endStroke;function cancelStroke(){drawing=null;inkLive=null;erasing=null;paint();controls()}$('drawing').onpointercancel=cancelStroke;$('drawing').onlostpointercapture=cancelStroke;
 $('drawing').onkeydown=function(e){if(mode==='draw'){if(e.key==='Escape'&&(inkLive||erasing)){e.preventDefault();cancelStroke()}return}var step=e.shiftKey?8:2,ok=true;if(e.key==='ArrowLeft')cursor[0]=Math.max(0,cursor[0]-step);else if(e.key==='ArrowRight')cursor[0]=Math.min(100,cursor[0]+step);else if(e.key==='ArrowUp')cursor[1]=Math.max(0,cursor[1]-step);else if(e.key==='ArrowDown')cursor[1]=Math.min(100,cursor[1]+step);else if(e.key==='Enter'||e.key===' '){selected=null;pending.push(cursor.slice())}else if(e.key==='c'||e.key==='C'){if(pending.length>=3)finishOutline(pending)}else if(e.key==='Escape')resetCanvas();else ok=false;if(ok){e.preventDefault();kbUsed=true;sync()}};
 $('close-outline').onclick=function(){if(pending.length>=3)finishOutline(pending);else if(selectedPiece()){selected=null;resetCanvas();sync();setText('draft-note','Nuevo recorte. Elige su papel y dibuja; los demás se quedan.')}};
+$('delete-piece').onclick=function(){var l=layer();if(!l||!Number.isInteger(selected)||!selectedPiece())return;checkpoint();l.pieces.splice(selected,1);if(!l.pieces.length)layers=layers.filter(function(x){return x!==l});selected=null;resetCanvas();changed();setText('draft-note','Recorte eliminado. Puedes deshacer.')};
 PAPERS.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Papel '+PAPER_NAMES[i]);var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){var p=selectedPiece();if(p&&p.color!==c){checkpoint();if(selected==='base'){if(draft.kind==='window'){tints.windows=(tints.windows||[]).slice();tints.windows[base.windows.length-1]=c}else tints[draft.kind]=c}else p.color=c}draft.color=c;changed();setText('draft-note',p?'Papel del recorte seleccionado: '+PAPER_NAMES[i]+'.':'Papel para el próximo recorte: '+PAPER_NAMES[i]+'.')};$('papers').appendChild(b)});
 document.querySelectorAll('#kinds .tool').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-kind');if(k===draft.kind)return;resetCanvas();draft.kind=k;chooseLast();changed()}});
 document.querySelectorAll('.kind-x').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-clear');checkpoint();layers=layers.filter(function(l){return l.kind!==k});if(base&&!omit.includes(k))omit.push(k);if(k===draft.kind){selected=null;resetCanvas()}changed();setText('draft-note','Capa retirada. Puedes deshacer.')}});
@@ -307,7 +339,7 @@ $('submit-house').onclick=async function(){if(houseBusy||!designCount())return;h
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu casa sigue aquí; prueba otro día.':'No hemos podido confirmar el envío. Tu casa sigue aquí. Puedes reintentarlo.';setText('house-status',text)}finally{clearTimeout(timer);houseBusy=false;controls();}};
 var toolBtns={cut:$('tool-cut'),pencil:$('tool-pencil'),wax:$('tool-wax'),eraser:$('tool-eraser')};
 var CUT_DESC=$('draw-desc').textContent,CUT_TITLE=$('draw-title').textContent;
-function applyMode(){mode=tool==='cut'?'cut':'draw';var d=mode==='draw';$('work-help').style.minHeight=d?'':'2.7em';$('cut-ui').style.display=d?'none':'';$('draw-ui').style.display=tool==='wax'?'':'none';$('close-outline').style.display=d?'none':'';for(var k in toolBtns)toolBtns[k].setAttribute('aria-pressed',String(tool===k));setText('draw-title',d?'Lienzo para dibujar encima de la casa':CUT_TITLE);setText('draw-desc',d?(tool==='eraser'?'Arrastra sobre un trazo para borrarlo entero.':'Arrastra para dibujar. Escape cancela el trazo en curso.'):CUT_DESC)}
+function applyMode(){mode=tool==='cut'?'cut':'draw';var d=mode==='draw';$('cut-ui').style.display=d?'none':'';$('draw-ui').style.display=tool==='wax'?'':'none';$('close-outline').style.display=d?'none':'';$('delete-piece').style.display=d?'none':'';for(var k in toolBtns)toolBtns[k].setAttribute('aria-pressed',String(tool===k));setText('draw-title',d?'Lienzo para dibujar encima de la casa':CUT_TITLE);setText('draw-desc',d?(tool==='eraser'?'Arrastra sobre lápiz o cera para borrar solo la zona tocada.':'Arrastra para dibujar. Escape cancela el trazo en curso.'):CUT_DESC)}
 Object.keys(toolBtns).forEach(function(k){toolBtns[k].onclick=function(){if(k===tool)return;tool=k;drawing=null;inkLive=null;erasing=null;applyMode();sync()}});
 WAXES.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Cera '+PAPER_NAMES[i].toLowerCase());b.setAttribute('aria-pressed',String(c===wax));var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){wax=c;for(var j=0;j<$('waxes').children.length;j++)$('waxes').children[j].setAttribute('aria-pressed',String(j===i))};$('waxes').appendChild(b)});
 applyMode();
