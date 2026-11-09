@@ -76,7 +76,7 @@ function syncKinds(){document.querySelectorAll('#kinds .tool').forEach(function(
 function proposeTarget(){if(ready())return draft;return draft.kind==='window'?(design.windows[design.windows.length-1]||null):(design[draft.kind]||null)}
 function controls(){
   var has=pending.length>0||draft.marks.length>0||ready();
-  $('undo').disabled=!has&&!undoStack.length;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
+  $('undo').disabled=!has&&!undoStack.length;$('clear').disabled=!has&&!designCount();$('close-outline').disabled=pending.length<3;
   $('save-design').disabled=!designCount();
   var pt=proposeTarget();
   $('submit-piece').disabled=!pt||submitBusy||!!submittedMap[JSON.stringify(pt)];
@@ -174,10 +174,10 @@ $('undo').onclick=function(){
   if(pending.length)pending.pop();
   else if(draft.marks.length)draft.marks.pop();
   else if(ready())draft.outline=null;
-  else if(undoStack.length){var op=undoStack.pop();if(op.kind==='window')design.windows=op.prev;else design[op.kind]=op.prev;saveDesign();paintSlots();setText('draft-note','Último cambio deshecho.')}
+  else if(undoStack.length){var op=undoStack.pop();if(op.kind==='all')design=op.prev;else if(op.kind==='window')design.windows=op.prev;else design[op.kind]=op.prev;saveDesign();paintSlots();setText('draft-note','Último cambio deshecho.')}
   paint();changed();
 };
-$('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){resetCanvas();paint();changed();$('clear-dialog').close()};
+$('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){if(designCount())undoStack.push({kind:'all',prev:JSON.parse(JSON.stringify(design))});design={wall:null,door:null,roof:null,windows:[]};lastAdded=null;resetCanvas();paint();paintSlots();saveDesign();changed();$('clear-dialog').close();setText('draft-note','Casa y lienzo vacíos. Puedes deshacer.')};
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},60000)}
 async function svgPNG(svg,name,status,bgc){var copy=svg.cloneNode(true);var fill=bgc||(svg.closest('#card')?homeBackground:null);if(fill){var bg=document.createElementNS(SVGNS,'rect');bg.setAttribute('width','100');bg.setAttribute('height','100');bg.setAttribute('fill',fill);copy.insertBefore(bg,copy.firstChild)}var markup=new XMLSerializer().serializeToString(copy),blob=new Blob([markup],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);try{var img=new Image();await new Promise(function(resolve,reject){img.onload=resolve;img.onerror=reject;img.src=url});var canvas=document.createElement('canvas');canvas.width=canvas.height=1800;canvas.getContext('2d').drawImage(img,0,0,1800,1800);var png=await new Promise(function(resolve){canvas.toBlob(resolve,'image/png')});if(!png)throw Error();downloadBlob(png,name+'.png');setText(status,'Imagen preparada. Si no se descarga, prueba mantener pulsada la imagen o usa otro navegador.')}catch(e){downloadBlob(blob,name+'.svg');setText(status,'Este navegador no pudo crear el PNG. Se ha preparado el collage en SVG.')}finally{URL.revokeObjectURL(url)}}
 $('save-design').onclick=function(){var svg=$('preview').querySelector('svg');if(svg)svgPNG(svg,'mi-casa','preview-status',previewBackground)};
