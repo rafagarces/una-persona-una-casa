@@ -82,13 +82,21 @@ function paintGallery(){
 }
 var viewerSet=null,viewerIndex=0,viewerReturnFocus=null,viewerCache={},viewerCacheKeys=[];
 function viewerKey(item){return item.example?'e'+item.seed:'v'+(item.design&&item.design.id||item.seed)+'-'+(item.rv||'')}
+var viewerMeasureHost=null;
+function viewerHost(){
+  // rv1-4 measure their composed group with getBBox, which needs a laid-out (connected, not display:none) host; keep it offscreen.
+  if(!viewerMeasureHost){viewerMeasureHost=document.createElement('div');viewerMeasureHost.setAttribute('aria-hidden','true');viewerMeasureHost.style.cssText='position:absolute;left:-10000px;top:0;width:100px;height:100px;visibility:hidden';document.body.appendChild(viewerMeasureHost)}
+  return viewerMeasureHost;
+}
 function renderViewerItem(item){
   var key=viewerKey(item),hit=viewerCache[key];
   if(hit)return hit;
   var art=document.createElement('div'),r=null;
+  viewerHost().appendChild(art);
   if(item.example)CasasV2.setCommunity([]);
   try{r=rendererFor(item.rv).render(art,item.design,item.seed)}finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
   hit={svg:art.firstChild,background:r.background};
+  if(art.remove)art.remove();else if(art.parentNode&&art.parentNode.removeChild)art.parentNode.removeChild(art);
   viewerCache[key]=hit;viewerCacheKeys.push(key);
   if(viewerCacheKeys.length>12)delete viewerCache[viewerCacheKeys.shift()];
   return hit;
