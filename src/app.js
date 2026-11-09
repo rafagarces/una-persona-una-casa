@@ -185,7 +185,6 @@ function paintCard(grid,item,index,set){
       var r=rendererFor(item.rv).render(tmp,item.design,item.seed);
       if(tmp.firstChild)art.replaceChildren(tmp.firstChild);
       if(tmp.remove)tmp.remove();else if(tmp.parentNode&&tmp.parentNode.removeChild)tmp.parentNode.removeChild(tmp);
-      card.style.background=r.background;
     }catch(e){card.remove()}
     finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
   };

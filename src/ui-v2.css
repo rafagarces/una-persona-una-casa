@@ -35,7 +35,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radi
 dialog{border-radius:var(--r-lg);border:1px solid var(--line);padding:24px}
 dialog button{border-radius:var(--r-md)}
 /* galería */
-.gallery-card{border-radius:var(--r-lg);padding:8px;border:1px solid var(--line);background:rgba(247,247,247,.35)}
+.gallery-card{border-radius:var(--r-lg);padding:8px;border:1px solid transparent;background:transparent}
 a{text-decoration-thickness:1px}
 /* visor/carrusel: controles circulares flotantes, la obra no se toca */
 .viewer-btn{width:52px;height:52px;min-width:52px;min-height:52px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-size:26px;line-height:1;display:inline-flex;align-items:center;justify-content:center;color:var(--ink)}
