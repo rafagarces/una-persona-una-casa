@@ -31,3 +31,7 @@ console.log('rv3 bounded base rv2, matching seed, no recursion: PASS');
 const tinted={...h3,tints:{wall:'#dfa3a5'},omit:['door']};assert.deepEqual(normalizeHouse(tinted),tinted);
 for(const bad of [{...h3,tints:{wall:'url(x)'}},{...h3,tints:{unknown:'x'}},{...h3,tints:{windows:Array(5).fill('#dfa3a5')}},{...h3,omit:['x']},{...h3,omit:['door','door']},{...h,omit:[]}])assert.throws(()=>normalizeHouse(bad));
 console.log('rv3 tints/omit strict bounded enums: PASS');
+const h4={v:1,rv:4,seed:8020,layers:[{kind:'wall',pieces:[p,{...p,color:'#dfa3a5'}]},{kind:'door',pieces:[{...p,kind:'door'}]}]};assert.deepEqual(normalizeHouse(h4),h4);
+const max4={v:1,rv:4,seed:1049771,base:{...h,rv:2,door:{...p,kind:'door'},roof:{...p,kind:'roof'},windows:Array(4).fill({...p,kind:'window'})},layers:[{kind:'wall',pieces:Array(24).fill(p)}]};assert.equal(normalizeHouse(max4).layers[0].pieces.length,24);
+for(const bad of [{...h4,layers:[h4.layers[0],h4.layers[0]]},{...h4,layers:[{kind:'door',pieces:[p]}]},{...h4,layers:[{kind:'wall',pieces:Array(25).fill(p)}]},{...h4,layers:[]},{...h4,base:{...h,rv:3,seed:8020}},{...h4,tints:{}},{...h4,layers:[{kind:'wall',pieces:[]}]}])assert.throws(()=>normalizeHouse(bad));
+console.log('rv4: multicolor independent cutouts, max24+7base, unique roles, matching types, no empty/recursive misuse: PASS');

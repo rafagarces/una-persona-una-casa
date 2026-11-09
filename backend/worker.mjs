@@ -23,6 +23,15 @@ export function normalize(x){
 }
 // Whole-house proposals (v1): the visitor's own composed house, pinned to a render version and seed.
 export function normalizeHouse(x){
+ if(x&&x.rv===4){
+  if(x.v!==1||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295||!Array.isArray(x.layers)||x.layers.length>4)throw Error('format');
+  const out={v:1,rv:4,seed:x.seed};
+  if(x.base!=null){if(x.base.rv!==2||x.base.base!=null||x.base.seed!==x.seed)throw Error('format');const legacy=normalizeHouse({v:1,rv:3,seed:x.seed,base:x.base,tints:x.tints,omit:x.omit,windows:[]});out.base=legacy.base;if(legacy.tints)out.tints=legacy.tints;if(legacy.omit)out.omit=legacy.omit}
+  else if(x.tints!=null||x.omit!=null)throw Error('format');
+  let count=0;const seen=new Set();
+  out.layers=x.layers.map(l=>{if(!l||!['wall','door','roof','window'].includes(l.kind)||seen.has(l.kind)||!Array.isArray(l.pieces)||!l.pieces.length||(count+=l.pieces.length)>24)throw Error('format');seen.add(l.kind);return {kind:l.kind,pieces:l.pieces.map(p=>{const q=normalize(p);if(q.kind!==l.kind)throw Error('format');return q})}});
+  if(!out.base&&!count)throw Error('format');return out;
+ }
  if(!x||x.v!==1||![1,2,3].includes(x.rv)||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295)throw Error('format');
  const out={v:1,rv:x.rv,seed:x.seed};
  if(x.base!=null){if(x.rv!==3||x.base.rv!==2||x.base.base!=null||x.base.seed!==x.seed)throw Error('format');out.base=normalizeHouse(x.base)}
