@@ -67,4 +67,22 @@ h.get('tool-cut').onclick();h.kinds[1].onclick();h.kinds[0].onclick();assert.equ
 h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].outline.length,4);assert.equal(h.state().layers[0].pieces[0].holes.length,1);
 h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].holes,undefined);
 console.log('PASS: tijeras: interior hole, overlap/outside rejections, edge notch splice, rv6 publication, hole-aware selection, undo');
+// Tijeras con gestos reales de dedo: trazos largos y lentos, ruido, bordes y cortes que apenas rozan.
+h=setup();h.kinds[0].onclick();h.draw([[10,20],[60,20],[60,85],[10,85]]);h.tap(1,1);h.get('tool-hole').onclick();
+// Hueco grande trazado despacio (más de 60 puntos crudos): antes se rechazaba por 'demasiados cambios'.
+{const pts=[];for(let i=0;i<=130;i++){const t=i/130*2*Math.PI;pts.push([35+Math.cos(t)*15,52+Math.sin(t)*15])}dragHole(pts)}
+wall=h.state().layers[0].pieces[0];assert.equal(wall.holes.length,1);assert.match(h.get('draft-note').textContent,/Hueco abierto/);
+// Hueco pegado al borde con ruido: se apoya en el borde (mordida) en vez de fallar, sin salirse del papel.
+{const pts=[];for(let i=0;i<=80;i++){const t=i/80*2*Math.PI;pts.push([17.5+Math.cos(t)*8+Math.sin(i*7)*.4,30+Math.sin(t)*8])}dragHole(pts)}
+wall=h.state().layers[0].pieces[0];assert.equal(wall.holes.length,2);assert.ok(wall.holes[1].every(p=>p[0]>=10&&p[0]<=60&&p[1]>=20&&p[1]<=85));
+// Muesca con tembleque que se sale un poco del papel: corta igualmente y nunca abulta fuera.
+{const pts=[];for(let i=0;i<=40;i++){const t=i/40;pts.push([10+Math.sin(i*3)*2,55+t*25+Math.cos(i*5)*1.5])}dragHole(pts)}
+wall=h.state().layers[0].pieces[0];assert.match(h.get('draft-note').textContent,/Muesca recortada/);assert.ok(wall.outline.every(p=>p[0]>=10&&p[0]<=60&&p[1]>=20&&p[1]<=85));assert.ok(wall.outline.length>4);
+// Un trazo sobre el borde que no quita casi papel lo dice, en vez de fingir un corte.
+{const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.tap(1,1);h2.get('tool-hole').onclick();const d2=h2.get('drawing');d2.onpointerdown(ev(10,55));d2.onpointermove(ev(10,65));d2.onpointermove(ev(10,75));d2.onpointerup();assert.match(h2.get('draft-note').textContent,/apenas roza/);assert.equal(h2.state().layers[0].pieces[0].outline.length,4)}
+// Un anillo casi entero fuera del papel se rechaza con la guía correcta.
+{const h3=setup();h3.kinds[0].onclick();h3.draw([[10,20],[60,20],[60,85],[10,85]]);h3.tap(1,1);h3.get('tool-hole').onclick();const pts=[];for(let i=0;i<=40;i++){const t=i/40*2*Math.PI;pts.push([4+Math.cos(t)*8,50+Math.sin(t)*8])}const d3=h3.get('drawing');d3.onpointerdown(ev(...pts[0]));for(const p of pts.slice(1))d3.onpointermove(ev(...p));d3.onpointerup();assert.match(h3.get('draft-note').textContent,/dentro del papel/);assert.equal(h3.state().layers[0].pieces[0].holes,undefined)}
+// El papel que recibe el corte es el que cubre más puntos del trazo, aunque el centroide caiga fuera.
+{const h4=setup();h4.kinds[0].onclick();h4.draw([[10,20],[60,20],[60,85],[10,85]]);h4.tap(1,1);h4.get('tool-hole').onclick();const d4=h4.get('drawing');d4.onpointerdown(ev(10,30));d4.onpointermove(ev(16,45));d4.onpointermove(ev(10,60));d4.onpointerup();assert.match(h4.get('draft-note').textContent,/Muesca recortada/);assert.ok(h4.state().layers[0].pieces[0].outline.length>4)}
+console.log('PASS: tijeras con gestos reales: hueco grande lento, mordida en el borde, muesca con tembleque, apenas roza, anillo fuera, papel por mayoría del trazo');
 })().catch(e=>{console.error(e);process.exit(1)});

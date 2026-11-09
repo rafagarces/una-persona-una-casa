@@ -352,37 +352,46 @@ function holesOverlap(a,b){
 function finishHole(raw){
  function bail(msg){drawing=null;paint();controls();setText('draft-note',msg)}
  if(raw.length<3)return bail('Ese corte no encierra forma suficiente.');
- if(raw.length>60)return bail('Ese contorno tiene demasiados cambios. Prueba un trazo más sencillo.');
- raw=raw.map(function(p){return p.map(function(n){return Math.round(n*10)/10})});
- var cx=0,cy=0;raw.forEach(function(p){cx+=p[0];cy+=p[1]});var c=[cx/raw.length,cy/raw.length];
- var target=null;
- for(var i=layers.length-1;i>=0&&!target;i--){var pcs=layers[i].pieces;for(var j=pcs.length-1;j>=0;j--){if(inside(c,pcs[j].outline)){target=pcs[j];break}}}
+ var r10=function(p){return [Math.round(p[0]*10)/10,Math.round(p[1]*10)/10]};
+ raw=raw.map(r10);
+ // El papel objetivo es el que cubre más puntos del trazo (en empate, el más alto): un trazo
+ // que empieza o acaba justo en el borde tiene el centroide fuera y antes no encontraba papel.
+ var target=null,best=0;
+ for(var i=layers.length-1;i>=0;i--){var pcs=layers[i].pieces;for(var j=pcs.length-1;j>=0;j--){var n=0;for(var k=0;k<raw.length;k++)if(inPiece(raw[k],pcs[j]))n++;if(n>best){best=n;target=pcs[j]}}}
  if(!target)return bail('Las tijeras solo cortan los papeles que has añadido tú.');
- var hs=target.holes||[];
- var deep=function(p){return inside(p,target.outline)&&boundaryProj(p,target.outline).d>1.2};
- if(raw.every(deep)){
-  // Hueco interior: anillo cerrado dentro de un solo papel.
-  var ring=simplify(raw.concat([raw[0]]),.4);ring.pop();
-  if(ring.length<3)return bail('Ese hueco no encierra forma suficiente.');
-  if(ring.length>60)return bail('Ese contorno tiene demasiados cambios. Prueba un trazo más sencillo.');
-  if(area2(ring)<2)return bail('Ese hueco es demasiado pequeño para verlo.');
-  if(hs.length>=6)return bail('Este papel ya tiene 6 huecos.');
-  if(hs.reduce(function(n,h){return n+h.length},0)+ring.length>200)return bail('Este papel ya no admite más huecos.');
-  if(hs.some(function(h){return holesOverlap(h,ring)}))return bail('Ahí ya hay un hueco.');
-  checkpoint();target.holes=hs.concat([ring]);resetCanvas();changed();setText('draft-note','Hueco abierto en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');return;
- }
- var A=boundaryProj(raw[0],target.outline),B=boundaryProj(raw[raw.length-1],target.outline);
- if(A.d<=2.5&&B.d<=2.5&&raw.slice(1,-1).every(deep)){
-  // Muesca de borde (una puerta): el trazo va de borde a borde y sustituye el arco más corto.
-  var ring2=spliceNotch(target.outline,simplify(raw,.4)).map(function(p){return [Math.round(p[0]*10)/10,Math.round(p[1]*10)/10]});
-  ring2=ring2.filter(function(p,i){return i===0||Math.hypot(p[0]-ring2[i-1][0],p[1]-ring2[i-1][1])>=.05});
+ var outline=target.outline,hs=target.holes||[];
+ // El dedo tiembla: un punto fuera por muy poco se apoya en el borde en vez de anular el corte.
+ var clampEdge=function(p){return inside(p,outline)?p:boundaryProj(p,outline).pt};
+ var A=boundaryProj(raw[0],outline),B=boundaryProj(raw[raw.length-1],outline);
+ var closedish=Math.hypot(raw[0][0]-raw[raw.length-1][0],raw[0][1]-raw[raw.length-1][1])<=5;
+ if(!closedish&&A.d<=4&&B.d<=4){
+  // Muesca de borde: el trazo va de borde a borde y sustituye el arco más corto.
+  var eps=.4,ring2=null;
+ for(;;){ring2=spliceNotch(outline,simplify(raw,eps).map(clampEdge)).map(r10);ring2=ring2.filter(function(p,q){return q===0||Math.hypot(p[0]-ring2[q-1][0],p[1]-ring2[q-1][1])>=.05});if(ring2.length<=160||eps>3)break;eps*=1.5}
   if(ring2.length>160)return bail('Ese corte tiene demasiados cambios. Prueba un trazo más sencillo.');
   var xs=ring2.map(function(p){return p[0]}),ys=ring2.map(function(p){return p[1]});
   if(ring2.length<3||Math.max.apply(null,xs)-Math.min.apply(null,xs)<4||Math.max.apply(null,ys)-Math.min.apply(null,ys)<4||area2(ring2)<15)return bail('Ese corte dejaría el papel demasiado pequeño.');
-  if(area2(ring2)<area2(target.outline)*.6)return bail('Ese corte partiría el papel en dos.');
-  checkpoint();target.outline=ring2;resetCanvas();changed();setText('draft-note','Hueco abierto en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');return;
+  var a0=area2(outline);
+  if(area2(ring2)<a0*.6)return bail('Ese corte partiría el papel en dos.');
+  if(a0-area2(ring2)<2)return bail('Ese corte apenas roza el papel. Entra un poco más.');
+  checkpoint();target.outline=ring2;resetCanvas();changed();setText('draft-note','Muesca recortada en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');return;
  }
- return bail('Dibuja el hueco entero dentro del papel, o empieza y acaba en su borde.');
+ // Hueco interior: anillo cerrado dentro de un solo papel; si roza el borde, la mordida queda
+ // pegada a él (el evenodd rellenaría de papel lo que sobresaliera, así que se apoya en el borde).
+ var eps2=.4,ring=null;
+ for(;;){ring=simplify(raw.concat([raw[0]]),eps2);ring.pop();if(ring.length<=60||eps2>3)break;eps2*=1.5}
+ if(ring.length<3)return bail('Ese hueco no encierra forma suficiente.');
+ if(ring.length>60)return bail('Ese contorno tiene demasiados cambios. Prueba un trazo más sencillo.');
+ var maxOut=0;for(var m=0;m<ring.length;m++){if(!inside(ring[m],outline)){var dd=boundaryProj(ring[m],outline).d;if(dd>maxOut)maxOut=dd}}
+ if(maxOut>3)return bail('Dibuja el hueco dentro del papel, o empieza y acaba en su borde.');
+ ring=ring.map(clampEdge).map(r10);
+ ring=ring.filter(function(p,q){return q===0||Math.hypot(p[0]-ring[q-1][0],p[1]-ring[q-1][1])>=.05});
+ if(ring.length<3)return bail('Ese hueco no encierra forma suficiente.');
+ if(area2(ring)<2)return bail('Ese hueco es demasiado pequeño para verlo.');
+ if(hs.length>=6)return bail('Este papel ya tiene 6 huecos.');
+ if(hs.reduce(function(n,h){return n+h.length},0)+ring.length>200)return bail('Este papel ya no admite más huecos.');
+ if(hs.some(function(h){return holesOverlap(h,ring)}))return bail('Ahí ya hay un hueco.');
+ checkpoint();target.holes=hs.concat([ring]);resetCanvas();changed();setText('draft-note','Hueco abierto en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');
 }
 $('drawing').onpointerdown=function(e){if(e.button&&e.button!==0)return;e.preventDefault();$('drawing').setPointerCapture(e.pointerId);if(mode==='draw'){setText('draft-note','');var q=point(e);if(tool==='eraser'){erasing={did:false};eraseAt(q)}else inkLive={k:'p',c:GRAPHITE,pts:[q]};paint();return}drawing={pts:[point(e)],moved:false};setText('draft-note','')};
 $('drawing').onpointermove=function(e){if(mode==='draw'){if(inkLive){var q=point(e),l=inkLive.pts[inkLive.pts.length-1];if(Math.hypot(l[0]-q[0],l[1]-q[1])>.5&&inkLive.pts.length<500){inkLive.pts.push(q);paint()}}else if(erasing)eraseAt(point(e));return}if(!drawing)return;var p=point(e),last=drawing.pts[drawing.pts.length-1];if(Math.hypot(last[0]-p[0],last[1]-p[1])>1.2&&drawing.pts.length<600){drawing.moved=true;drawing.pts.push(p);paint()}};
@@ -435,7 +444,11 @@ $('submit-house').onclick=async function(){if(houseBusy||!designCount())return;h
 var toolBtns={cut:$('tool-cut'),hole:$('tool-hole'),pencil:$('tool-pencil'),eraser:$('tool-eraser')};
 var CUT_DESC=$('draw-desc').textContent,CUT_TITLE=$('draw-title').textContent;
 function applyMode(){mode=(tool==='pencil'||tool==='eraser')?'draw':'cut';var d=mode==='draw';$('cut-ui').style.display=(d||tool==='hole')?'none':'';$('close-outline').style.display=d?'none':'';$('delete-piece').style.display=d?'none':'';for(var k in toolBtns)toolBtns[k].setAttribute('aria-pressed',String(tool===k));setText('draw-title',d?'Lienzo para dibujar encima de la casa':tool==='hole'?'Lienzo para abrir huecos en el papel':CUT_TITLE);setText('draw-desc',d?(tool==='eraser'?'Arrastra sobre el dibujo para borrar solo la zona tocada. Escape cancela.':'Arrastra para dibujar. Escape cancela el trazo en curso.'):tool==='hole'?'Arrastra para trazar el contorno: entero dentro de un papel para un hueco, o de borde a borde para una muesca, sin partir el papel. Con teclado: las flechas mueven el cursor, Intro añade un punto y la tecla C cierra.':CUT_DESC)}
-Object.keys(toolBtns).forEach(function(k){toolBtns[k].onclick=function(){if(k===tool)return;tool=k;if(k==='hole')selected=null;drawing=null;inkLive=null;erasing=null;applyMode();sync()}});
+Object.keys(toolBtns).forEach(function(k){function pick(){if(k===tool)return;tool=k;if(k==='hole')selected=null;drawing=null;inkLive=null;erasing=null;applyMode();sync()}
+ toolBtns[k].onclick=pick;
+ // En táctil, el primer toque tras un arrastre en el lienzo a veces no genera click; pointerup
+ // hace el cambio y el click que sí llega no repite nada, porque pick sale si k===tool.
+ toolBtns[k].onpointerup=function(e){if(e.pointerType==='touch')pick()};});
 applyMode();
 chooseLast();window.addEventListener('pagehide',saveDesign);
 })();
