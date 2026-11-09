@@ -78,3 +78,7 @@ button,.tabs button,.tool,.slot{font-weight:500}
  .tabs button{padding-left:20px;padding-right:20px}
 }
 @media(max-width:350px){.tools.actions button{padding-left:4px;padding-right:4px;font-size:12px}.tools{gap:4px}}
+/* v2.2 (iPhone real): la nav flotante tapaba texto que se leía a través; más opaca, y el final de página deja sitio claro bajo ella */
+:root{--glass:rgba(247,247,247,.95)}
+.tabs button:not([aria-current=page]){background:rgba(247,247,247,.96)}
+@media(max-width:760px){.page{padding-bottom:calc(var(--tabs-h) + 56px + env(safe-area-inset-bottom))}.panel{margin-bottom:calc(var(--tabs-h) + 24px)}}
