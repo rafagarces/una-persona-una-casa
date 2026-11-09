@@ -25,9 +25,18 @@
 </button>
 <script>
 (function(){
-  var BG=['#e8304f','#3f9a5a','#ee7b30','#3a5bd9','#1f9d9b','#ee86a6','#e9b52b','#7a5cc8','#d9412b','#2b7a4b','#2c3e8f'];
-  var PC=['#e7b6d3','#d9c4ef','#f2d96b','#8c9be0','#f6f3ee','#b9e0c4','#f3b99a','#a8c8e8','#4b9560','#f08aa8','#f4c542','#cfd8f5','#e8e1a0','#c97b8a'];
-  var INK='#2b2540';
+  var INK='#2b2540',WAX=false,WAXC='#2b2540';
+  var INKS=['#2b2a33','#3a3846','#453f3b','#2a3350','#34302e','#4a4452'];
+  function hx(n){n=Math.max(0,Math.min(255,Math.round(n)));return(n<16?'0':'')+n.toString(16)}
+  function hsl(h,s,l){h=((h%360)+360)%360;s/=100;l/=100;var a=s*Math.min(l,1-l);
+    function k(n){var m=(n+h/30)%12;return l-a*Math.max(-1,Math.min(m-3,9-m,1))}
+    return'#'+hx(k(0)*255)+hx(k(8)*255)+hx(k(4)*255)}
+  function makeBG(){return hsl(R(0,360),R(45,90),R(36,62))}
+  function makePool(bg){var pool=[],n=0,t=0;
+    while(pool.length<14&&t++<200){
+      var m=rnd(),c=m<.3?hsl(R(0,360),R(25,60),R(80,92)):m<.55?hsl(R(0,360),R(55,90),R(60,76)):m<.8?hsl(R(0,360),R(40,80),R(40,58)):hsl(R(30,60),R(10,35),R(88,96));
+      if(dist(c,bg)>110)pool.push(c)}
+    return pool}
   var seed;
   function rnd(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}
   function R(a,b){return a+(b-a)*rnd()}
@@ -45,15 +54,26 @@
   function rect(x,y,w,h){return[[x,y],[x+w,y],[x+w,y+h],[x,y+h]]}
   // pencil line through points, two loose passes
   function pencil(pts,w){
-    var o='';
-    for(var k=0;k<2;k++){
-      var q=pts.map(function(p){return J(p,k?.5:.25)});
-      var d='M'+f(q[0][0])+' '+f(q[0][1]);
-      for(var i=1;i<q.length;i++){var m=[(q[i-1][0]+q[i][0])/2+R(-.4,.4),(q[i-1][1]+q[i][1])/2+R(-.4,.4)];d+='Q'+f(m[0])+' '+f(m[1])+' '+f(q[i][0])+' '+f(q[i][1])}
-      o+='<path d="'+d+'" fill="none" stroke="'+INK+'" stroke-width="'+f((w||.45)*R(.8,1.25))+'" stroke-linecap="round" stroke-linejoin="round" opacity="'+f(R(.6,.9))+'"/>';
+    if(WAX)return waxline(pts,w);
+    var o='',np=rnd()<.35?3:2;
+    for(var k=0;k<np;k++){
+      var q=pts.map(function(p){return J(p,k?.45:.2)});
+      var d='M'+f(q[0][0]+R(-.5,.5))+' '+f(q[0][1]+R(-.5,.5));
+      for(var i=1;i<q.length;i++){var m=[(q[i-1][0]+q[i][0])/2+R(-.5,.5),(q[i-1][1]+q[i][1])/2+R(-.5,.5)];d+='Q'+f(m[0])+' '+f(m[1])+' '+f(q[i][0]+(i==q.length-1?R(-.6,.6):0))+' '+f(q[i][1]+(i==q.length-1?R(-.6,.6):0))}
+      o+='<path d="'+d+'" fill="none" stroke="'+INK+'" stroke-width="'+f((w||.45)*R(.38,.75)*(k?.8:1))+'" stroke-linecap="round" stroke-linejoin="round" opacity="'+f(R(.4,.85)*(k?.7:1))+'"/>';
     }
     return o;
   }
+  function waxline(pts,w){
+    var q=pts.map(function(p){return J(p,.35)});
+    var d='M'+f(q[0][0])+' '+f(q[0][1]);
+    for(var i=1;i<q.length;i++){var m=[(q[i-1][0]+q[i][0])/2+R(-.7,.7),(q[i-1][1]+q[i][1])/2+R(-.7,.7)];d+='Q'+f(m[0])+' '+f(m[1])+' '+f(q[i][0])+' '+f(q[i][1])}
+    return'<path d="'+d+'" fill="none" stroke="'+WAXC+'" stroke-width="'+f((w||.45)*R(3.2,4.4))+'" stroke-linecap="round" stroke-linejoin="round" opacity="'+f(R(.82,.95))+'" filter="url(#wax)"/>';
+  }
+  function sq(cx,cy,r){var a=R(-.1,.1),p=[[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]].map(function(v){return[cx+(v[0]*Math.cos(a)-v[1]*Math.sin(a))*r*R(.9,1.1),cy+(v[0]*Math.sin(a)+v[1]*Math.cos(a))*r*R(.9,1.1)]});
+    return pencil(p,.4)+(rnd()<.6?pencil([[cx,cy-r],[cx+R(-.4,.4),cy+r]],.3):'')}
+  function dots(cx,cy,r){var o='';for(var i=0;i<3;i++)o+=pencil([[cx-r+i*r,cy+R(-1,1)],[cx-r+i*r+R(.2,.8),cy+R(.2,.8)]],.6);return o}
+  function hatch(cx,cy,r){var o='',n=Math.round(R(3,5));for(var i=0;i<n;i++)o+=pencil([[cx-r+i*2*r/n,cy-r*.8],[cx-r+i*2*r/n+r*.5,cy+r*.8]],.35);return o}
   function star(cx,cy,r){
     var pts=[],a0=R(-.5,.5)-Math.PI/2;
     for(var i=0;i<6;i++){var a=a0+i*4*Math.PI/5;pts.push([cx+Math.cos(a)*r*R(.85,1.1),cy+Math.sin(a)*r*R(.85,1.1)])}
@@ -83,13 +103,13 @@
   function rgb(h){return[1,3,5].map(function(i){return parseInt(h.substr(i,2),16)})}
   function dist(a,b){var x=rgb(a),y=rgb(b);return Math.sqrt(Math.pow(x[0]-y[0],2)+Math.pow(x[1]-y[1],2)+Math.pow(x[2]-y[2],2))}
   function house(){
-    var bg=pick(BG),others=PC.filter(function(c){return dist(c,bg)>130}),used=[];
+    var bg=makeBG(),others=makePool(bg),used=[];INK=pick(INKS);WAX=rnd()<.3;WAXC=pick([INK,INK,hsl(R(0,360),R(60,90),R(22,40)),hsl(R(0,360),R(55,80),R(36,50))]);
     function col(){var c,t=0;do{c=pick(others);t++}while(used.indexOf(c)>-1&&t<20);used.push(c);return c}
     var out='',pen='';
     var kind=Math.floor(R(0,4));
     var bx=R(24,36),by=R(46,54),bw=R(30,44),bh=R(26,36);
     if(by+bh>86)bh=86-by;
-    var roofCol=rnd()<.4?'#f6f3ee':col();
+    var roofCol=rnd()<.3?'#f6f3ee':col();
     var bodyCol=col();
     var bodies=[];
     // main body
@@ -137,7 +157,7 @@
       pen+=archLine(dx,dy,dw,dh)+scribble(dx+dw*.3,dy+dh*.4,dw*.35,dh*.55);
     }
     // windows (pencil)
-    var wk=Math.floor(R(0,4));
+    var wk=Math.floor(R(0,7));
     var wy=main.y+main.h*R(.15,.3);
     var tops=[main].concat(bodies.filter(function(b){return b!==main}));
     var targets=tops.slice(0,rnd()<.5?2:1);
@@ -149,7 +169,10 @@
         if(wk===0)pen+=star(cx,cy,r);
         else if(wk===1)pen+=loop(cx,cy,r*.8);
         else if(wk===2)pen+=cross(cx,cy,r*.8);
-        else pen+=(i%2?star(cx,cy,r):loop(cx,cy,r*.8));
+        else if(wk===3)pen+=(i%2?star(cx,cy,r):loop(cx,cy,r*.8));
+        else if(wk===4)pen+=sq(cx,cy,r*.85);
+        else if(wk===5)pen+=(rnd()<.5?dots(cx,cy,r):hatch(cx,cy,r));
+        else pen+=pick([star,loop,cross,sq])(cx,cy,r*.85);
       }
     });
     if(rnd()<.35){var b=pick(bodies);pen+=scribble(b.x+b.w*R(.1,.7),b.y+b.h*R(.5,.7),R(3,6),R(5,9))}
@@ -158,12 +181,12 @@
     var rotp=R(-1.4,1.4),rotb=R(-1.8,1.8);
     var svg='<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'+
      '<defs><filter id="sh" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".25" dy=".35" stdDeviation=".28" flood-color="#241a30" flood-opacity=".32"/></filter>'+
-     '<filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="'+Math.floor(R(1,99))+'"/><feColorMatrix values="0 0 0 0 .25  0 0 0 0 .22  0 0 0 0 .2  0 0 0 .5 -.18"/></filter></defs>'+
+     '<filter id="wax" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.1" result="d"/><feGaussianBlur in="d" stdDeviation=".12"/></filter><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="'+Math.floor(R(1,99))+'"/><feColorMatrix values="0 0 0 0 .25  0 0 0 0 .22  0 0 0 0 .2  0 0 0 .3 -.1"/></filter></defs>'+
      '<g transform="rotate('+f(rotp)+' 50 50)"><rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/>'+
      '<rect x="3" y="3" width="94" height="94" fill="#fff" opacity=".0"/>'+
      '<g transform="rotate('+f(rotb)+' 50 50)"><path d="'+path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)])+'" fill="'+bg+'"/>'+
      '<g id="hs">'+out+pen+'</g></g>'+
-     '<rect x="3" y="3" width="94" height="94" filter="url(#grain)" style="mix-blend-mode:multiply" opacity=".7"/></g></svg>';
+     '<rect x="3" y="3" width="94" height="94" filter="url(#grain)" style="mix-blend-mode:multiply" opacity=".3"/></g></svg>';
     return svg;
   }
   var card=document.getElementById('card');
