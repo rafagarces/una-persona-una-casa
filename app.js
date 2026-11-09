@@ -84,7 +84,7 @@ $('again').onclick=fresh;
 loadViewerPaper();
 fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))COMMUNITY_LIST=list.filter(valid).slice(0,600);if(typeof Casas!=='undefined')Casas.setCommunity(COMMUNITY_LIST);CasasV2.setCommunity(COMMUNITY_LIST)}).catch(function(){});
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
-function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();preview();saveDesign()}if(name==='gallery'){paintGallery();loadHouses(true)}if($('content'))$('content').scrollTop=0;window.scrollTo(0,0);if(name!=='home'){homePrepRun++;$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}else{serveHome();prepHome()}}
+function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();saveDesign();if(rendererAvailable(5))preview();else rendererReady(5).then(function(){preview()})}if(name==='gallery'){paintGallery();loadHouses(true)}if($('content'))$('content').scrollTop=0;window.scrollTo(0,0);if(name!=='home'){homePrepRun++;$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}else{serveHome();prepHome()}}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
 var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedGallery=null,renderQueue=[],renderScheduled=false;
 function queueRender(fn){renderQueue.push(fn);if(renderScheduled)return;renderScheduled=true;
@@ -107,15 +107,29 @@ async function loadHouses(force){
  return housesLoading;
 }
 if(window.requestIdleCallback)requestIdleCallback(function(){loadHouses()});else setTimeout(function(){loadHouses()},2000);
+// Con la portada ya servida, los motores de la galería se traen en segundo plano para que abrirla sea inmediato.
+if(window.requestIdleCallback)requestIdleCallback(function(){rendererReady(1);rendererReady(3);rendererReady(4)},{timeout:6000});else setTimeout(function(){rendererReady(1);rendererReady(3);rendererReady(4)},8000);
 function validHouse(h){if(!h||h.v!==1||![1,2,3,4,5].includes(h.rv)||!Number.isInteger(h.seed)||h.seed<0||h.seed>4294967295)return false;if(h.base&&(!(h.rv===3||h.rv===4||h.rv===5)||h.base.rv!==2||h.base.base||h.base.seed!==h.seed||!validHouse(h.base)))return false;if(h.rv===4||h.rv===5)return (h.ink==null||(h.rv===5&&validInk(h.ink)))&&Array.isArray(h.layers)&&h.layers.length<=4&&new Set(h.layers.map(function(l){return l.kind})).size===h.layers.length&&h.layers.reduce(function(n,l){return n+(l.pieces||[]).length},0)<=24&&h.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.length&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})});return ['wall','roof','door'].every(function(k){return !h[k]||(valid(h[k])&&h[k].kind===k)})&&Array.isArray(h.windows)&&h.windows.length<=4&&h.windows.every(function(w){return valid(w)&&w.kind==='window'})}
 var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110967, 118886, 134724, 142643, 166400, 174319, 190157, 198076, 205995, 213914, 221833, 229752, 237671, 245590, 261428, 277266, 301023, 308942, 316861, 324780, 364375];
+// Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
+// concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
+// bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
+var ASSET_V='20261109-opt1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4'},rendererLoads={};
+function rendererNeed(rv){return rv===5?4:rv}
+function rendererAvailable(rv){var g=RENDERER_GLOBAL[rendererNeed(rv)];return !g||!!window[g]}
+function rendererReady(rv){
+ var need=rendererNeed(rv),g=RENDERER_GLOBAL[need];
+ if(!g||window[g])return Promise.resolve();
+ return rendererLoads[need]||(rendererLoads[need]=new Promise(function(res){var s=document.createElement('script');s.src=RENDERER_SRC[need]+'?v='+ASSET_V;s.onload=res;s.onerror=res;document.head.appendChild(s)}));
+}
 function rendererFor(rv){return rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:CasasV2}
 function paintCard(grid,item,index,set){
   var card=document.createElement('button');card.type='button';card.className='gallery-card';
   card.setAttribute('aria-label',item.label+'. Abrir en grande. Casa '+(index+1)+' de '+set.length+'.');
   card.onclick=function(){openViewer(set,index,card)};
   var art=document.createElement('div');art.className='art';art.setAttribute('aria-hidden','true');card.appendChild(art);grid.appendChild(card);
-  queueRender(function(){
+  var work=function(){
+    if(!rendererAvailable(item.rv)){rendererReady(item.rv).then(function(){queueRender(work)});return}
     // Render in the connected offscreen host: the grid can be display:none (user left the tab) and getBBox needs layout.
     if(item.example)CasasV2.setCommunity([]);
     try{
@@ -126,7 +140,8 @@ function paintCard(grid,item,index,set){
       card.style.background=r.background;
     }catch(e){card.remove()}
     finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
-  });
+  };
+  queueRender(work);
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 function paintGallery(){
@@ -136,6 +151,7 @@ function paintGallery(){
     paintedGallery=sig;
     var grid=$('gallery-grid');grid.replaceChildren();
     var items=(housesBank||[]).map(function(h){return {design:h,seed:h.seed,rv:h.rv,label:'Casa de visitante hecha con recortes de papel'}}).concat(EXAMPLE_SET);
+    var rvs={};items.forEach(function(item){rvs[rendererNeed(item.rv||2)]=1});Object.keys(rvs).forEach(function(rv){rendererReady(+rv)});
     items.forEach(function(item,i){paintCard(grid,item,i,items)});
   }
   setText('gallery-empty',galleryError?'Las casas de visitantes no se han podido cargar. Prueba a recargar.':'');
@@ -196,19 +212,22 @@ function prefetchViewer(){
       if(run!==viewerPrefetchRun||!viewerSet)return;
       var it=items[i],k=viewerKey(it),have=viewerBitmaps[k];
       if(have&&have.px===px){next(i+1);return}
-      try{
-        var hit=renderViewerItem(it);
-        if(!hit.svg){next(i+1);return}
-        makeBitmap(k,hit.svg,px).then(function(cv){
-          if(cv&&run===viewerPrefetchRun&&viewerSet){
-            if(!viewerBitmaps[k])viewerBitmapKeys.push(k);
-            viewerBitmaps[k]={cv:cv,px:px};
-            while(viewerBitmapKeys.length>7)delete viewerBitmaps[viewerBitmapKeys.shift()];
-            if(viewerKey(viewerSet[viewerIndex])===k)showViewerBitmap(k);
-          }
-          next(i+1);
-        });
-      }catch(e){next(i+1)}
+      rendererReady(it.rv||2).then(function(){
+        if(run!==viewerPrefetchRun||!viewerSet)return;
+        try{
+          var hit=renderViewerItem(it);
+          if(!hit.svg){next(i+1);return}
+          makeBitmap(k,hit.svg,px).then(function(cv){
+            if(cv&&run===viewerPrefetchRun&&viewerSet){
+              if(!viewerBitmaps[k])viewerBitmapKeys.push(k);
+              viewerBitmaps[k]={cv:cv,px:px};
+              while(viewerBitmapKeys.length>7)delete viewerBitmaps[viewerBitmapKeys.shift()];
+              if(viewerKey(viewerSet[viewerIndex])===k)showViewerBitmap(k);
+            }
+            next(i+1);
+          });
+        }catch(e){next(i+1)}
+      });
     });
   })(0);
 }
@@ -233,9 +252,11 @@ function paintViewer(){
 function openViewer(set,index,origin){
   if(!set.length)return;viewerSet=set;viewerIndex=index;viewerReturnFocus=origin||null;
   var d=$('viewer');if(!d.open)d.showModal();
-  paintViewer();if(d.open)$('viewer-close').focus({preventScroll:true});
+  requestPaint();if(d.open)$('viewer-close').focus({preventScroll:true});
 }
-function stepViewer(delta){if(!viewerSet||viewerSet.length<2)return;viewerIndex=(viewerIndex+delta+viewerSet.length)%viewerSet.length;paintViewer()}
+function stepViewer(delta){if(!viewerSet||viewerSet.length<2)return;viewerIndex=(viewerIndex+delta+viewerSet.length)%viewerSet.length;requestPaint()}
+// Si el motor de esta casa aún no ha llegado, se pinta en cuanto carga; si ya está, se pinta al momento.
+function requestPaint(){var item=viewerSet&&viewerSet[viewerIndex];if(!item)return;if(rendererAvailable(item.rv||2))paintViewer();else rendererReady(item.rv||2).then(function(){if(viewerSet&&viewerSet[viewerIndex]===item)paintViewer()})}
 $('viewer-prev').onclick=function(){stepViewer(-1)};
 $('viewer-next').onclick=function(){stepViewer(1)};
 $('viewer-close').onclick=function(){$('viewer').close()};
