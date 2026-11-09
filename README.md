@@ -2,15 +2,15 @@
 
 Generador de collages de casas (antes «Casas de papel»). Sitio estático en GitHub Pages, sin cuentas para visitantes, analítica ni servicios de pago añadidos.
 
-## Experiencia
+## Experiencia actual
 
-- Una sola navegación en todas las secciones: la marca arriba (vuelve a la casa de inicio) y Galería / Crea tu casa en una barra inferior en móvil, arriba a la derecha en escritorio. Sin «Volver» y con el mismo fondo en todas.
-- Otra casa (icono ↻) genera una composición nueva en el dispositivo. Esa misma casa (misma semilla rv2) es la que se edita en Crea tu casa.
-- Crea tu casa es un único lienzo: se dibuja el contorno directamente sobre la casa, que se recompone en cuanto se cierra el recorte. El contorno ES la pieza (forma, proporciones y papel propios, sin transformaciones que lo mutilen). Pared, puerta, ventana y tejado; la pieza cerrada sigue seleccionada: se puede cambiar su papel (con deshacer) o dibujar otra encima para sustituirla; las ventanas se acumulan hasta cuatro.
-- Contorno a mano alzada o punto a punto (cierre tocando el primer punto), también con teclado, deshacer y borrador local. Las guardas anteriores se conservan (pared casi plana no sustituye a una buena, gestos cancelados no añaden nada).
-- Galería: 30 casas de ejemplo (semillas fijas del motor rv2 con banco compartido vacío, así no cambian) en su propia sección «Casas de ejemplo». Las casas de visitantes aprobadas (`houses.json`) irían en otra sección distinta; hoy no hay ninguna. Los ejemplos no son aportaciones de visitantes.
-- Proponer pieza / Proponer tu casa envían una propuesta privada por gesto de la visitante. Solo tras revisión visual y publicación entra en `community.json` o `houses.json`. No se incluyen propuestas pendientes.
-- El banco comunitario de piezas comienza vacío. Las piezas del motor son originales, no se presentan como aportaciones de visitantes.
+- Una sola navegación: marca arriba, Galería / Crea tu casa abajo en móvil y arriba a la derecha en escritorio. Sin «Volver». La pestaña activa se queda en su sección; la marca lleva al inicio. Fondo común entre secciones.
+- Inicio genera casas aleatorias; la galería tiene30 ejemplos de semillas fijas rv2, independientes del banco de aportaciones. Los dos textos explicativos de ejemplos se quitaron por petición de Rafa. No son casas de visitantes ni registros históricos.
+- Crear una casa nueva empieza con cartulina en blanco. Pared, puerta, ventana y tejado son capas libres, no moldes. Cada capa acumula varios recortes independientes, con sus colores, contornos, posiciones y tamaños exactos. Se superponen según el orden de creación de las capas y de los recortes dentro de cada capa. Máximo24recortes nuevos total.
+- Un solo lienzo. Trazo libre o punto a punto, cierre tocando el primer punto o con el botón, y teclado. Simplificación a segmentos con tolerancia limitada, sin encajar el recorte en una ranura, cambiar su escala ni inventar nodosBezier.
+- Al cerrar sigue seleccionado y se puede cambiar solo su papel. «Nuevo recorte» reutiliza el botón de cierre para deseleccionar y preparar otro color sin borrar el anterior. Tocar otro recorte de la capa activa lo selecciona. Deshacer, quitar capa y borrar todo son locales y reversibles durante la sesión.
+- El borrador y su semilla se guardan en el navegador. Los borradores antiguos se conservan como base rv2 y además en una copia local no destructiva. rv1/rv2/rv3 están congelados; la edición nueva usa rv4.
+- Proponer pieza / Proponer tu casa envían propuestas privadas solo por gesto de la visitante. Las casas aprobadas van a `houses.json`; aprobar una casa no añade sus piezas a `community.json`. La galería no publica automáticamente el trabajo de visitantes.
 
 ## Backend
 
