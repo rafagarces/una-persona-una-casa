@@ -38,22 +38,49 @@ var RENDER_V=4,housesBank=null,galleryError=false;
 fetch('houses.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(!Array.isArray(list))throw Error();housesBank=list.filter(validHouse).slice(0,600);if(currentView==='gallery')paintGallery()}).catch(function(){galleryError=true;if(currentView==='gallery')paintGallery()});
 function validHouse(h){if(!h||h.v!==1||![1,2,3,4].includes(h.rv)||!Number.isInteger(h.seed)||h.seed<0||h.seed>4294967295)return false;if(h.base&&(!(h.rv===3||h.rv===4)||h.base.rv!==2||h.base.base||h.base.seed!==h.seed||!validHouse(h.base)))return false;if(h.rv===4)return Array.isArray(h.layers)&&h.layers.length<=4&&new Set(h.layers.map(function(l){return l.kind})).size===h.layers.length&&h.layers.reduce(function(n,l){return n+(l.pieces||[]).length},0)<=24&&h.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.length&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})});return ['wall','roof','door'].every(function(k){return !h[k]||(valid(h[k])&&h[k].kind===k)})&&Array.isArray(h.windows)&&h.windows.length<=4&&h.windows.every(function(w){return valid(w)&&w.kind==='window'})}
 var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110967, 118886, 134724, 142643, 166400, 174319, 190157, 198076, 205995, 213914, 221833, 229752, 237671, 245590, 261428, 277266, 301023, 308942, 316861, 324780, 364375];
-function paintCard(grid,label,design,seed,rv){
-  var card=document.createElement('div');card.className='gallery-card';
-  var art=document.createElement('div');art.className='art';art.setAttribute('role','img');art.setAttribute('aria-label',label);card.appendChild(art);grid.appendChild(card);
-  try{var r=(rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:CasasV2).render(art,design,seed);card.style.background=r.background}catch(e){card.remove()}
+function rendererFor(rv){return rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:CasasV2}
+function paintCard(grid,item,index,set){
+  var card=document.createElement('button');card.type='button';card.className='gallery-card';
+  card.setAttribute('aria-label',item.label+'. Abrir en grande. Casa '+(index+1)+' de '+set.length+'.');
+  card.onclick=function(){openViewer(set,index,card)};
+  var art=document.createElement('div');art.className='art';art.setAttribute('aria-hidden','true');card.appendChild(art);grid.appendChild(card);
+  try{var r=rendererFor(item.rv).render(art,item.design,item.seed);card.style.background=r.background}catch(e){card.remove()}
 }
+var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 function paintGallery(){
   var vg=$('gallery-grid'),eg=$('examples-grid');vg.replaceChildren();eg.replaceChildren();
-  var visitors=(housesBank||[]);
+  var visitors=(housesBank||[]).map(function(h){return {design:h,seed:h.seed,rv:h.rv,label:'Casa de visitante hecha con recortes de papel'}});
   $('gallery-visitors').hidden=!visitors.length;
-  visitors.forEach(function(h){paintCard(vg,'Casa de visitante hecha con recortes de papel',h,h.seed,h.rv)});
+  visitors.forEach(function(item,i){paintCard(vg,item,i,visitors)});
   // Examples are fixed rv2 seeds with an empty shared bank, so they never change when pieces are approved.
   CasasV2.setCommunity([]);
-  try{EXAMPLES.forEach(function(seed){paintCard(eg,'Casa de ejemplo hecha con recortes de papel',null,seed,2)})}finally{CasasV2.setCommunity(COMMUNITY_LIST)}
+  try{EXAMPLE_SET.forEach(function(item,i){paintCard(eg,item,i,EXAMPLE_SET)})}finally{CasasV2.setCommunity(COMMUNITY_LIST)}
   setText('gallery-empty',galleryError?'Las casas de visitantes no se han podido cargar. Prueba a recargar.':'');
   $('gallery-empty').hidden=!$('gallery-empty').textContent;
 }
+var viewerSet=null,viewerIndex=0,viewerReturnFocus=null;
+function paintViewer(){
+  var item=viewerSet[viewerIndex],d=$('viewer'),r=null;
+  try{
+    if(item.example)CasasV2.setCommunity([]);
+    try{$('viewer-art').replaceChildren();r=rendererFor(item.rv).render($('viewer-art'),item.design,item.seed)}finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
+  }catch(e){if(d.open)d.close();return}
+  d.style.background=r.background;d.style.setProperty('--onpage',onpage(r.background));
+  setText('viewer-label',item.label+', '+(viewerIndex+1)+' de '+viewerSet.length);
+  setText('viewer-count',(viewerIndex+1)+' / '+viewerSet.length);
+}
+function openViewer(set,index,origin){
+  if(!set.length)return;viewerSet=set;viewerIndex=index;viewerReturnFocus=origin||null;
+  var d=$('viewer');if(!d.open)d.showModal();
+  paintViewer();if(d.open)$('viewer-close').focus({preventScroll:true});
+}
+function stepViewer(delta){if(!viewerSet||viewerSet.length<2)return;viewerIndex=(viewerIndex+delta+viewerSet.length)%viewerSet.length;paintViewer()}
+$('viewer-prev').onclick=function(){stepViewer(-1)};
+$('viewer-next').onclick=function(){stepViewer(1)};
+$('viewer-close').onclick=function(){$('viewer').close()};
+$('viewer').onclose=function(){viewerSet=null;if(viewerReturnFocus&&document.contains(viewerReturnFocus))viewerReturnFocus.focus()};
+$('viewer').onkeydown=function(e){if(e.key==='ArrowLeft'){e.preventDefault();stepViewer(-1)}else if(e.key==='ArrowRight'){e.preventDefault();stepViewer(1)}};
+(function(){var start=null,stage=$('viewer-stage');stage.onpointerdown=function(e){if(e.target.closest('button'))return;start={x:e.clientX,y:e.clientY}};stage.onpointerup=function(e){if(!start)return;var dx=e.clientX-start.x,dy=e.clientY-start.y;start=null;if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.4)stepViewer(dx<0?1:-1)};stage.onpointercancel=function(){start=null}})();
 function houseSnapshot(){var h={v:1,rv:4,seed:previewSeed};if(base){h.base=base;if(Object.keys(tints).length)h.tints=tints;if(omit.length)h.omit=omit}h.layers=layers;return JSON.stringify(h)}
 var previewBackground='#f7f5f0';function preview(){if($('workshop').hidden)return;var r=CasasV4.render($('preview'),JSON.parse(houseSnapshot()),previewSeed);previewBackground=r.background;$('stage').style.background=r.background}
 function resetCanvas(){pending=[];drawing=null;kbUsed=false}

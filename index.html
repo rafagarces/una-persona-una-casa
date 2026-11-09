@@ -93,6 +93,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 .kind-x:hover{background:transparent}
 .kind-x:hover::before{background:#eaeaea}
 @media(max-width:415px){.kindwrap .tool{font-size:13px}}
+
+/* Visor en grande: cada tarjeta abre la casa a pantalla completa y el carrusel pasa de una a otra sin salir. */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+button.gallery-card{border:0;min-height:0;padding:8px;font-weight:400}
+.gallery-card:focus-visible{outline:3px solid #325a9f;outline-offset:2px}
+#viewer{border:0;padding:0;margin:0;max-width:none;max-height:none;width:100%;height:100svh;background:#a9c3dd;color:var(--onpage,#252525)}
+#viewer[open]{display:flex;flex-direction:column}
+#viewer::backdrop{background:#0006}
+.viewer-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px}
+.viewer-count{margin:0;font-size:14px;font-weight:600;padding:0 10px}
+.viewer-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px}
+.viewer-stage .art{width:min(92vw,calc(100svh - 190px),760px)}
+.viewer-nav{flex:none;display:flex;align-items:center;justify-content:center;gap:12px;padding:6px 8px calc(10px + env(safe-area-inset-bottom))}
+.viewer-btn{background:transparent;border:1px solid transparent;color:inherit;min-width:44px;min-height:44px;padding:4px 14px;font-size:30px;line-height:1;font-weight:400}
+.viewer-btn:hover{background:transparent;text-decoration:underline;text-underline-offset:4px}
+#viewer button:focus-visible{outline:3px solid var(--onpage,#252525);outline-offset:3px}
 </style>
 </head>
 <body>
@@ -126,6 +142,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 </section>
 <dialog id="clear-dialog"><h2>¿Borrar tu casa?</h2><p>Se borrarán todas las capas y sus recortes. Puedes deshacer después.</p><div class="actions"><button id="cancel-clear" type="button">Cancelar</button><button id="confirm-clear" class="primary" type="button">Borrar todo</button></div></dialog>
 </main>
+<dialog id="viewer" aria-labelledby="viewer-label">
+<p id="viewer-label" class="sr-only"></p>
+<div class="viewer-top"><p id="viewer-count" class="viewer-count" role="status" aria-live="polite"></p><button id="viewer-close" class="viewer-btn" type="button" aria-label="Cerrar la vista grande" title="Cerrar">×</button></div>
+<div class="viewer-stage" id="viewer-stage"><div id="viewer-art" class="art"></div></div>
+<div class="viewer-nav"><button id="viewer-prev" class="viewer-btn" type="button" aria-label="Casa anterior" title="Casa anterior">‹</button><button id="viewer-next" class="viewer-btn" type="button" aria-label="Casa siguiente" title="Casa siguiente">›</button></div>
+</dialog>
 <nav class="tabs" aria-label="Secciones"><button id="open-gallery" type="button">Galería</button><button id="open-workshop" type="button">Crea tu casa</button></nav>
 <script>
 (function(){
@@ -402,6 +424,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 <script src="renderer-v2.js?v=1"></script>
 <script src="renderer-v3.js?v=3"></script>
 <script src="renderer-v4.js?v=4"></script>
-<script src="app.js?v=20261109-house-only1"></script>
+<script src="app.js?v=20261109-viewer1"></script>
 </body>
 </html>
