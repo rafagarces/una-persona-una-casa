@@ -176,7 +176,7 @@
     // background square, slightly rotated, on white paper
     var rotp=R(-1.4,1.4),rotb=R(-1.8,1.8);
     var svg='<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'+
-     '<defs><filter id="sh" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".25" dy=".35" stdDeviation=".28" flood-color="#241a30" flood-opacity=".32"/></filter>'+
+     '<defs><filter id="sh" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".06" dy=".1" stdDeviation=".1" flood-color="#241a30" flood-opacity=".11"/></filter>'+
      '<filter id="wax" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.1" result="d"/><feGaussianBlur in="d" stdDeviation=".12"/></filter><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="'+Math.floor(R(1,99))+'"/><feColorMatrix values="0 0 0 0 .25  0 0 0 0 .22  0 0 0 0 .2  0 0 0 .3 -.1"/></filter></defs>'+
      '<g transform="rotate('+f(rotp)+' 50 50)"><rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/>'+
      '<rect x="3" y="3" width="94" height="94" fill="#fff" opacity=".0"/>'+
