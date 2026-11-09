@@ -39,3 +39,18 @@ Fuentes de límites, comprobadas el 9 noviembre 2026:
 - https://developers.cloudflare.com/workers/platform/limits/
 - https://developers.cloudflare.com/d1/platform/pricing/
 - https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits
+
+## Galería de casas completas (v1, rv1)
+
+`houses.json` contiene solo casas propuestas mediante el botón "Proponer tu casa" y aprobadas tras revisión. Empieza vacío: no existe histórico recuperable de casas generadas antes. Ni visitar ni refrescar la portada ni dibujar publica nada por sí solo. La propuesta de una casa tampoco incorpora sus recortes al banco de piezas.
+
+Contrato: `{v:1,rv:1,seed:uint32,wall?:pieceV2,door?:pieceV2,roof?:pieceV2,windows:pieceV2[0..4]}`. Al menos un recorte propio. Cada campo debe tener su `kind` correspondiente. Se reserializa solo geometría permitida. `renderer-v1.js` es el motor congelado rv1: no editarlo; una modificación futura necesita rv2 y conservar rv1 para las casas antiguas. Taller, galería y revisión de casas usan el mismo motor y semilla. Las casas con piezas propias no dependen del banco comunitario cambiante.
+
+`POST /submit-house` recibe `{house,consent:true,website:""}` hasta 96 KB. No acepta SVG/HTML, nombres, contactos ni enlaces. Tabla `houses` privada en el D1 existente, ID+SHA256 del cuerpo normalizado. Comparte límites con `pieces`: 60 propuestas/día y 600 pendientes totales, con INSERT atómico y contadores por trigger. Free sigue sin planes/tarjetas nuevos. Pendientes legacy de piezas intactos. Retención privada 30 días.
+
+Revisión con acceso propio:
+- `python scripts/review.py list /ruta/privada` y `list-houses /ruta/privada [created_cursor_ms]`. Revisar casas completas y cada recorte aislado. Nunca publicar las páginas privadas. `list-houses` lee lotes de 60 en orden creado/ID; continuar con el timestamp del último lote. No asumir aprobación de la casa por sus recortes.
+- `approve-house UUID SHA256` o `reject-house UUID SHA256`. Se verifica cuerpo+hash. Solo `approve-house` agrega geometría normalizada a `houses.json`; nunca a `community.json`.
+- Commit y push al repo `rafagarces/una-persona-una-casa`. Tras verificar casa y banco servido, `finalize-house UUID SHA256` comprueba la composición exacta en el banco público antes de eliminar la copia privada.
+- `withdraw-house UUID`, commit, publicar y verificar. Las copias descargadas no pueden retirarse.
+- `python scripts/deploy.py` aplica la ampliación aditiva de esquema y los triggers, luego actualiza el mismo worker. No crea recursos si `backend/config.json` existe.

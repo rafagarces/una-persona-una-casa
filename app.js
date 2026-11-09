@@ -25,6 +25,21 @@ fresh();$('again').onclick=fresh;
 // Load the approved static bank once, without delaying the initial collage.
 fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))Casas.setCommunity(list.filter(valid).slice(0,600))}).catch(function(){});
 $('open-workshop').onclick=function(){previousFocus=document.activeElement;homeScroll=scrollY;$('home').hidden=true;$('workshop').hidden=false;document.body.style.background='#f7f7f7';sync();preview();window.scrollTo(0,0);$('work-title').focus();};
+var RENDER_V=1,housesBank=[];
+fetch('houses.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(!Array.isArray(list))throw Error();housesBank=list.filter(validHouse).slice(0,600);if(!$('gallery').hidden)paintGallery()}).catch(function(){setText('gallery-empty','No hemos podido cargar la galería. Prueba a recargar.');$('gallery-empty').hidden=false});
+function validHouse(h){return h&&h.v===1&&h.rv===1&&Number.isInteger(h.seed)&&h.seed>=0&&h.seed<=4294967295&&['wall','roof','door'].every(function(k){return !h[k]||(valid(h[k])&&h[k].kind===k)})&&Array.isArray(h.windows)&&h.windows.length<=4&&h.windows.every(function(w){return valid(w)&&w.kind==='window'})}
+$('open-gallery').onclick=function(){previousFocus=document.activeElement;homeScroll=scrollY;$('home').hidden=true;$('gallery').hidden=false;document.body.style.background='#f7f7f7';paintGallery();window.scrollTo(0,0);$('gallery-title').focus();};
+$('back-gallery').onclick=function(){$('gallery').hidden=true;$('home').hidden=false;document.body.style.background=homeBackground;window.scrollTo(0,homeScroll);(previousFocus||$('open-gallery')).focus();};
+function paintGallery(){
+  var grid=$('gallery-grid');grid.replaceChildren();
+  $('gallery-empty').hidden=housesBank.length>0;
+  housesBank.forEach(function(h){
+    var card=document.createElement('div');card.className='gallery-card';
+    var art=document.createElement('div');art.className='art';art.setAttribute('role','img');art.setAttribute('aria-label','Casa hecha con recortes de papel');card.appendChild(art);grid.appendChild(card);
+    var design={wall:h.wall||null,door:h.door||null,roof:h.roof||null,windows:h.windows||[]};
+    var r=CasasV1.render(art,design,h.seed);card.style.background=r.background;
+  });
+}
 $('back').onclick=function(){endStroke();$('workshop').hidden=true;$('home').hidden=false;document.body.style.background=homeBackground;window.scrollTo(0,homeScroll);(previousFocus||$('open-workshop')).focus();};
 var homeBackground=document.body.style.background;var originalFresh=fresh;$('again').onclick=function(){originalFresh();homeBackground=document.body.style.background};
 var HELP_DRAW='Arrastra libre o toca punto a punto. La guía orienta, no es un molde: tu pieza conserva su forma. No hace falta recortar perfecto.';
@@ -58,13 +73,15 @@ function designActive(){
   return (d.wall||d.door||d.roof||d.windows.length)?d:null;
 }
 function syncKinds(){document.querySelectorAll('#kinds .tool').forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-kind')===draft.kind))})}
-function proposeTarget(){if(ready())return draft;if(lastAdded)return lastAdded;return design.windows[design.windows.length-1]||design.door||design.roof||design.wall||null}
+function proposeTarget(){if(ready())return draft;return draft.kind==='window'?(design.windows[design.windows.length-1]||null):(design[draft.kind]||null)}
 function controls(){
   var has=pending.length>0||draft.marks.length>0||ready();
   $('undo').disabled=!has&&!undoStack.length;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
   $('save-design').disabled=!designCount();
   var pt=proposeTarget();
   $('submit-piece').disabled=!pt||submitBusy||!!submittedMap[JSON.stringify(pt)];
+  $('submit-piece').title=pt?'Proponer '+KIND_ART[pt.kind]+' seleccionada':'Primero recorta esta parte de tu casa';
+  $('submit-house').disabled=!designCount()||houseBusy||!!submittedHouses[houseSnapshot()];
   helpText();
 }
 function changed(){setText('send-status','');controls();clearTimeout(saveTimer);saveTimer=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch(e){setText('draft-note','Este navegador no deja guardar el borrador. Descarga tu pieza antes de salir.')}},150);clearTimeout(previewTimer);previewTimer=setTimeout(preview,220);}
@@ -88,7 +105,7 @@ function paint(){
   $('guide').setAttribute('d',GUIDES[draft.kind]||GUIDES.window);
 }
 var previewBackground='#d5d7db';
-function preview(){if($('workshop').hidden)return;var r=Casas.render($('preview'),designActive(),previewSeed);previewBackground=r.background;$('preview-bg').style.background=r.background;}
+function preview(){if($('workshop').hidden)return;var r=CasasV1.render($('preview'),designActive(),previewSeed);previewBackground=r.background;$('preview-bg').style.background=r.background;}
 function point(e){var b=$('drawing').getBoundingClientRect();return [Math.max(0,Math.min(100,Math.round((e.clientX-b.left)/b.width*1000)/10)),Math.max(0,Math.min(100,Math.round((e.clientY-b.top)/b.height*1000)/10))]}
 function perp(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return Math.hypot(p[0]-a[0],p[1]-a[1]);return Math.abs(dy*p[0]-dx*p[1]+b[0]*a[1]-b[1]*a[0])/L}
 function simplify(pts,eps){
@@ -164,6 +181,11 @@ $('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').o
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},60000)}
 async function svgPNG(svg,name,status,bgc){var copy=svg.cloneNode(true);var fill=bgc||(svg.closest('#card')?homeBackground:null);if(fill){var bg=document.createElementNS(SVGNS,'rect');bg.setAttribute('width','100');bg.setAttribute('height','100');bg.setAttribute('fill',fill);copy.insertBefore(bg,copy.firstChild)}var markup=new XMLSerializer().serializeToString(copy),blob=new Blob([markup],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);try{var img=new Image();await new Promise(function(resolve,reject){img.onload=resolve;img.onerror=reject;img.src=url});var canvas=document.createElement('canvas');canvas.width=canvas.height=1800;canvas.getContext('2d').drawImage(img,0,0,1800,1800);var png=await new Promise(function(resolve){canvas.toBlob(resolve,'image/png')});if(!png)throw Error();downloadBlob(png,name+'.png');setText(status,'Imagen preparada. Si no se descarga, prueba mantener pulsada la imagen o usa otro navegador.')}catch(e){downloadBlob(blob,name+'.svg');setText(status,'Este navegador no pudo crear el PNG. Se ha preparado el collage en SVG.')}finally{URL.revokeObjectURL(url)}}
 $('save-design').onclick=function(){var svg=$('preview').querySelector('svg');if(svg)svgPNG(svg,'mi-casa','preview-status',previewBackground)};
+var houseBusy=false,submittedHouses={};
+function houseSnapshot(){var d=designActive()||{wall:null,door:null,roof:null,windows:[]};return JSON.stringify({v:1,rv:RENDER_V,seed:previewSeed,wall:d.wall||undefined,door:d.door||undefined,roof:d.roof||undefined,windows:d.windows||[]})}
+$('submit-house').onclick=async function(){if(houseBusy||!designCount())return;houseBusy=true;controls();setText('house-status','Enviando tu casa…');var snapshot=houseSnapshot(),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
+ try{var r=await fetch(ENDPOINT+'/submit-house',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({house:JSON.parse(snapshot),consent:true,website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id)throw new Error(result.error||'unavailable');submittedHouses[snapshot]=true;setText('house-status','Casa recibida para revisión. Todavía no está en la galería. Referencia '+result.id.slice(0,8)+'.')}
+ catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu casa sigue aquí; prueba otro día.':'No hemos podido confirmar el envío. Tu casa sigue aquí. Puedes reintentarlo.';setText('house-status',text)}finally{clearTimeout(timer);houseBusy=false;controls();}};
 $('submit-piece').onclick=async function(){var piece=proposeTarget();if(submitBusy||!piece)return;submitBusy=true;controls();setText('send-status','Enviando tu pieza…');var snapshot=JSON.stringify(piece),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
  try{var r=await fetch(ENDPOINT+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({piece:JSON.parse(snapshot),consent:true,website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id)throw new Error(result.error||'unavailable');submittedMap[snapshot]=true;setText('send-status','Pieza recibida para revisión. Todavía no está publicada. Referencia '+result.id.slice(0,8)+'. La pieza sigue en tu casa.');try{localStorage.setItem('casas-last-submission',JSON.stringify({id:result.id,time:Date.now()}))}catch(e){}}
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu pieza sigue aquí; descárgala o prueba otro día.':'No hemos podido confirmar el envío. Tu pieza sigue aquí. Puedes reintentarlo: no se duplicará la misma pieza.';setText('send-status',text)}finally{clearTimeout(timer);submitBusy=false;controls();}};

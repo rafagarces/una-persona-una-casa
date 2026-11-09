@@ -35,10 +35,24 @@ def clean(x):
   sp=pts(s['points'],1,60);total+=len(sp);assert total<=400
   out['marks'].append({'color':s['color'],'width':s['width'],'points':sp})
  return out
+def cleanHouse(x):
+ assert x.get('v')==1 and x.get('rv')==1 and type(x.get('seed')) is int and 0<=x['seed']<=4294967295
+ out={'v':1,'rv':1,'seed':x['seed']}
+ for k in ['wall','door','roof']:
+  if x.get(k) is not None:
+   p=clean(x[k]);assert p['kind']==k;out[k]=p
+ ws=x.get('windows') or []
+ assert isinstance(ws,list) and len(ws)<=4
+ out['windows']=[]
+ for w in ws:
+  p=clean(w);assert p['kind']=='window';out['windows'].append(p)
+ assert any(k in out for k in ['wall','door','roof']) or out['windows']
+ return out
 cmd=sys.argv[1]
 if cmd=='list':
  # Purge only this project's expired private intake. No cron on a shared account.
  query('DELETE FROM pieces WHERE created < ?',[int(time.time()*1000)-30*86400000])
+ query('DELETE FROM houses WHERE created < ?',[int(time.time()*1000)-30*86400000])
  query('DELETE FROM intake_days WHERE day < ?',[time.strftime('%Y-%m-%d',time.gmtime(time.time()-31*86400))])
  rows=query('SELECT id,hash,body,created FROM pieces ORDER BY created LIMIT 60')['results']
  out=pathlib.Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
@@ -58,11 +72,29 @@ if cmd=='list':
 items.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · '+row.piece.kind+' · '+row.piece.material;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code,r);document.querySelector('#items').append(a);const raw=document.createElement('div');raw.className='house';raw.style.background='#f7f7f7';raw.innerHTML=Casas.pieceSVG(row.piece);r.append(raw);[10304,10975].forEach(seed=>{const d=document.createElement('div');d.className='house';r.append(d);let out=Casas.render(d,row.piece,seed);d.style.background=out.background});});</script></html>'''
  (out/'index.html').write_text(page)
  print(json.dumps({'private_preview':str(out/'index.html'),'pending':len(data),'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
+elif cmd=='list-houses':
+ query('DELETE FROM houses WHERE created < ?',[int(time.time()*1000)-30*86400000])
+ cursor=int(sys.argv[3]) if len(sys.argv)>3 else 0
+ rows=query('SELECT id,hash,body,created FROM houses WHERE created>? ORDER BY created,id LIMIT 60',[cursor])['results']
+ out=pathlib.Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
+ data=[]
+ for row in rows:
+  try:
+   raw=json.loads(row.pop('body'))
+   row['house']=cleanHouse(raw);data.append(row)
+  except Exception:print('Invalid quarantined row',row['id'])
+ (out/'private-houses.json').write_text(json.dumps(data))
+ engine=(root/'renderer-v1.js').read_text().replace('window.CasasV1=','window.Casas=')
+ payload=json.dumps(data).replace('<','\\u003c')
+ page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de casas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:150px;height:150px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada de casas</h1><p>Datos no fiables de visitantes. Revisar la casa completa y cada recorte aislado: pueden aparecer mensajes o símbolos solo al combinar piezas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces y firmas. Aprobar la casa NO incorpora sus piezas al banco de piezas. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';\nitems.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · casa rv'+row.house.rv+' semilla '+row.house.seed;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code);const d=document.createElement('div');d.className='house';a.append(d);const design={wall:row.house.wall||null,door:row.house.door||null,roof:row.house.roof||null,windows:row.house.windows};let out=Casas.render(d,design,row.house.seed);d.style.background=out.background;a.append(r);['wall','roof','door'].forEach(k=>{if(row.house[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=Casas.pieceSVG(row.house[k]);r.append(p)}});row.house.windows.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=Casas.pieceSVG(w);r.append(p)});document.querySelector('#items').append(a)});</script></html>'''
+ (out/'houses.html').write_text(page)
+ print(json.dumps({'private_preview':str(out/'houses.html'),'pending':len(data),'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
 elif cmd in ['approve','reject']:
  id,expected=sys.argv[2:4]
  assert re.fullmatch(r'[a-f0-9-]{36}',id) and re.fullmatch(r'[a-f0-9]{64}',expected)
  rows=query('SELECT id,hash,body FROM pieces WHERE id=?',[id])['results'];assert len(rows)==1
  row=rows[0];assert row['hash']==expected
+ assert hashlib.sha256(row['body'].encode()).hexdigest()==expected
  if cmd=='approve':
   p=clean(json.loads(row['body']));p['id']=id
   bank=json.loads((root/'community.json').read_text());assert len(bank)<600
@@ -71,11 +103,42 @@ elif cmd in ['approve','reject']:
   print('Added approved piece to local community.json. COMMIT AND PUBLISH before marking complete.')
  else:print('Rejected private piece.')
  if cmd=='reject':query('DELETE FROM pieces WHERE id=? AND hash=?',[id,expected])
+elif cmd in ['approve-house','reject-house']:
+ id,expected=sys.argv[2:4]
+ assert re.fullmatch(r'[a-f0-9-]{36}',id) and re.fullmatch(r'[a-f0-9]{64}',expected)
+ rows=query('SELECT id,hash,body FROM houses WHERE id=?',[id])['results'];assert len(rows)==1
+ row=rows[0];assert row['hash']==expected
+ assert hashlib.sha256(row['body'].encode()).hexdigest()==expected
+ if cmd=='approve-house':
+  p=cleanHouse(json.loads(row['body']));p['id']=id
+  bankpath=root/'houses.json'
+  bank=json.loads(bankpath.read_text()) if bankpath.exists() else []
+  assert len(bank)<600
+  if not any(x.get('id')==id for x in bank):bank.append(p)
+  bankpath.write_text(json.dumps(bank,separators=(',',':'))+'\n')
+  print('Added approved house to local houses.json. COMMIT AND PUBLISH before marking complete.')
+ else:print('Rejected private house.')
+ if cmd=='reject-house':query('DELETE FROM houses WHERE id=? AND hash=?',[id,expected])
+elif cmd=='finalize-house':
+ id,expected=sys.argv[2:4]
+ import urllib.request
+ bank=json.load(urllib.request.urlopen('https://rafagarces.github.io/una-persona-una-casa/houses.json'))
+ rows=query('SELECT hash,body FROM houses WHERE id=?',[id])['results'];assert len(rows)==1 and rows[0]['hash']==expected
+ expectedHouse=cleanHouse(json.loads(rows[0]['body']))
+ assert any(x.get('id')==id and cleanHouse(x)==expectedHouse for x in bank), 'Exact house not yet published; private proposal kept'
+ query('DELETE FROM houses WHERE id=? AND hash=?',[id,expected])
+ print('Published house bank verified. Private proposal removed.')
+elif cmd=='withdraw-house':
+ id=sys.argv[2];bank=json.loads((root/'houses.json').read_text());new=[x for x in bank if x.get('id')!=id]
+ assert len(new)<len(bank);(root/'houses.json').write_text(json.dumps(new,separators=(',',':'))+'\n')
+ print('Removed house from local bank. COMMIT AND PUBLISH. Already downloaded copies cannot be revoked.')
 elif cmd=='finalize':
  id,expected=sys.argv[2:4]
  import urllib.request
  bank=json.load(urllib.request.urlopen('https://rafagarces.github.io/una-persona-una-casa/community.json'))
- assert any(x.get('id')==id for x in bank), 'Not yet published; private proposal kept'
+ rows=query('SELECT hash,body FROM pieces WHERE id=?',[id])['results'];assert len(rows)==1 and rows[0]['hash']==expected
+ expectedPiece=clean(json.loads(rows[0]['body']))
+ assert any(x.get('id')==id and clean(x)==expectedPiece for x in bank), 'Exact piece not yet published; private proposal kept'
  query('DELETE FROM pieces WHERE id=? AND hash=?',[id,expected])
  print('Published bank verified. Private proposal removed.')
 elif cmd=='withdraw':
