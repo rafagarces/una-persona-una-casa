@@ -1,4 +1,4 @@
-import json,pathlib,uuid
+import json,pathlib,uuid,sqlite3
 from cloudflare import api,ACCOUNT
 root=pathlib.Path(__file__).parents[1]
 p=root/'backend/config.json'
@@ -6,8 +6,12 @@ if p.exists():db=json.loads(p.read_text())['database_id']
 else:
  db=api('accounts/'+ACCOUNT+'/d1/database','POST',{'name':'casas-de-papel-pieces'})['uuid']
  p.write_text(json.dumps({'account_id':ACCOUNT,'database_id':db,'worker':'casas-de-papel-pieces'},indent=2)+'\n')
-for sql in (root/'backend/schema.sql').read_text().split(';'):
- if sql.strip():api('accounts/'+ACCOUNT+'/d1/database/'+db+'/query','POST',{'sql':sql,'params':[]})
+sql=''
+for line in (root/'backend/schema.sql').read_text().splitlines():
+ sql+=line+'\n'
+ if sqlite3.complete_statement(sql):
+  api('accounts/'+ACCOUNT+'/d1/database/'+db+'/query','POST',{'sql':sql,'params':[]});sql=''
+assert not sql.strip()
 api('accounts/'+ACCOUNT+'/d1/database/'+db+'/query','POST',{'sql':'CREATE TRIGGER IF NOT EXISTS intake_count AFTER INSERT ON pieces BEGIN INSERT INTO intake_days(day,n) VALUES(NEW.day,1) ON CONFLICT(day) DO UPDATE SET n=n+1; END','params':[]})
 for sql in ['CREATE TRIGGER IF NOT EXISTS intake_queue_add AFTER INSERT ON pieces BEGIN UPDATE intake_queue SET n=n+1 WHERE id=1; END','CREATE TRIGGER IF NOT EXISTS intake_queue_remove AFTER DELETE ON pieces BEGIN UPDATE intake_queue SET n=n-1 WHERE id=1; END','CREATE TRIGGER IF NOT EXISTS intake_count_houses AFTER INSERT ON houses BEGIN INSERT INTO intake_days(day,n) VALUES(NEW.day,1) ON CONFLICT(day) DO UPDATE SET n=n+1; END','CREATE TRIGGER IF NOT EXISTS intake_queue_add_houses AFTER INSERT ON houses BEGIN UPDATE intake_queue SET n=n+1 WHERE id=1; END','CREATE TRIGGER IF NOT EXISTS intake_queue_remove_houses AFTER DELETE ON houses BEGIN UPDATE intake_queue SET n=n-1 WHERE id=1; END']:
  api('accounts/'+ACCOUNT+'/d1/database/'+db+'/query','POST',{'sql':sql,'params':[]})

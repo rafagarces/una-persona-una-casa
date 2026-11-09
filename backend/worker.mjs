@@ -56,12 +56,19 @@ export function normalizeHouse(x){
 export default {async fetch(req,env){
  const headers={'Access-Control-Allow-Origin':ORIGIN,'Vary':'Origin','Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
  const reply=(body,status=200)=>Response.json(body,{status,headers});
- if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
+ if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
  const path=new URL(req.url).pathname;
- if((path!=='/submit'&&path!=='/submit-house')||req.method!=='POST')return reply({error:'not_found'},404);
+ if(path==='/gallery'&&req.method==='GET'){
+  try{const u=new URL(req.url),cursor=Number(u.searchParams.get('before')||'9007199254740991'),after=u.searchParams.get('id')||'';
+   if(!Number.isSafeInteger(cursor)||cursor<0||after.length>36)return reply({error:'invalid'},400);
+   const rows=(await env.DB.prepare('SELECT id,body,created FROM public_houses WHERE created<? OR (created=? AND id<?) ORDER BY created DESC,id DESC LIMIT 30').bind(cursor,cursor,after||'~').all()).results;
+   return reply({houses:rows.map(r=>({...JSON.parse(r.body),id:r.id})),next:rows.length===30?{before:rows[29].created,id:rows[29].id}:null});
+  }catch(e){return reply({error:'unavailable'},503)}
+ }
+ if((path!=='/submit'&&path!=='/submit-house'&&path!=='/publish-house')||req.method!=='POST')return reply({error:'not_found'},404);
  if(req.headers.get('Origin')!==ORIGIN)return reply({error:'origin'},403);
  if(!req.headers.get('Content-Type')?.startsWith('application/json'))return reply({error:'type'},415);
- const cap=path==='/submit-house'?96000:32000;
+ const cap=path==='/submit'?32000:96000;
  if(Number(req.headers.get('Content-Length')||0)>cap)return reply({error:'size'},413);
  try{
   // Bounded streaming read, including chunked input.
@@ -72,17 +79,17 @@ export default {async fetch(req,env){
   // Bounded compatibility for pre-audit tabs until 2026-11-11 00:00 UTC.
   // Neither field is proof of consent or a security boundary.
   const legacyAction=data.action===undefined&&data.consent===true&&Date.now()<1794355200000;
-  if(data.website||(data.action!=='propose-for-review'&&!legacyAction))return reply({error:'action'},400);
-  const table=path==='/submit-house'?'houses':'pieces';
-  const item=path==='/submit-house'?normalizeHouse(data.house):normalize(data.piece),json=JSON.stringify(item),digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(json));
+  if(data.website||(path==='/publish-house'?data.action!=='publish':(data.action!=='propose-for-review'&&!legacyAction)))return reply({error:'action'},400);
+  const direct=path==='/publish-house',table=direct?'public_houses':path==='/submit-house'?'houses':'pieces';
+  const item=path==='/submit'?normalize(data.piece):normalizeHouse(data.house),json=JSON.stringify(item),digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(json));
   const hash=[...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('');
   const existing=await env.DB.prepare(`SELECT id FROM ${table} WHERE hash=?`).bind(hash).first();
-  if(existing)return reply({id:existing.id,status:'pending'},200);
+  if(existing)return reply({id:existing.id,status:direct?'published':'pending'},200);
   const id=crypto.randomUUID(),now=Date.now(),day=new Date(now).toISOString().slice(0,10);
   // One atomic INSERT guards both caps under concurrent requests. No IP/name/email stored.
   // Pieces and houses share the same intake_queue/intake_days counters: one hard total.
   const r=await env.DB.prepare(`INSERT INTO ${table} (id,hash,body,created,day) SELECT ?,?,?,?,? WHERE (SELECT n FROM intake_queue WHERE id=1)<600 AND COALESCE((SELECT n FROM intake_days WHERE day=?),0)<60`).bind(id,hash,json,now,day,day).run();
   if(!r.meta.changes)return reply({error:'capacity'},429);
-  return reply({id,status:'pending'},201);
+  return reply({id,status:direct?'published':'pending'},201);
  }catch(e){if(e.message?.includes('format')||e.message?.includes('stroke')||e.message?.includes('point')||e.message?.includes('outline')||e.message?.includes('marks')||e.message?.includes('degenerate')||e instanceof SyntaxError)return reply({error:'invalid'},400);return reply({error:'unavailable'},503)}
 }};

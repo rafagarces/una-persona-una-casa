@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import worker from '../backend/worker.mjs';
+const house={v:1,rv:4,seed:17,layers:[{kind:'wall',pieces:[{v:2,kind:'wall',color:'#b04a41',material:'pencil',outline:[[10,10],[80,10],[80,80]],marks:[]}]}]};
+let saved=null,insert=0;
+const env={DB:{prepare(sql){return {bind(...args){return {async first(){return sql.includes('public_houses')&&saved?{id:saved.id}:null},async all(){assert.match(sql,/FROM public_houses/);return {results:saved?[saved]:[]}},async run(){assert.match(sql,/INSERT INTO public_houses/);assert.match(sql,/intake_queue/);assert.match(sql,/intake_days/);insert++;saved={id:args[0],body:args[2],created:args[3]};return {meta:{changes:1}}}}}}}}};
+const req=(action)=>new Request('https://x/publish-house',{method:'POST',headers:{Origin:'https://rafagarces.github.io','Content-Type':'application/json'},body:JSON.stringify({action,house})});
+assert.equal((await worker.fetch(req('propose-for-review'),env)).status,400);
+let r=await worker.fetch(req('publish'),env),out=await r.json();assert.equal(r.status,201);assert.equal(out.status,'published');
+r=await worker.fetch(req('publish'),env);assert.equal(r.status,200);assert.equal(insert,1);
+r=await worker.fetch(new Request('https://x/gallery'),env);out=await r.json();assert.equal(out.houses[0].rv,4);assert.equal(out.houses[0].seed,17);assert.equal(out.houses.length,1);assert.equal(out.next,null);
+assert.equal((await worker.fetch(new Request('https://x/gallery?before=bad'),env)).status,400);
+console.log('PASS direct publication, explicit action, dedup, public-only gallery, version, cursor validation');

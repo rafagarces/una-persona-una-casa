@@ -104,11 +104,12 @@ if cmd=='list':
 items.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · '+row.piece.kind+' · '+row.piece.material;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code,r);document.querySelector('#items').append(a);const raw=document.createElement('div');raw.className='house';raw.style.background='#f7f7f7';raw.innerHTML=Casas.pieceSVG(row.piece);r.append(raw);[10304,10975].forEach(seed=>{const d=document.createElement('div');d.className='house';r.append(d);let out=Casas.render(d,row.piece,seed);d.style.background=out.background});});</script></html>'''
  (out/'index.html').write_text(page)
  print(json.dumps({'private_preview':str(out/'index.html'),'pending':len(data),'next_cursor':[rows[-1]['created'],rows[-1]['id']] if len(rows)==60 else None,'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
-elif cmd=='list-houses':
+elif cmd in ['list-houses','list-public']:
  purgeExpired()
  cursor_ms=int(sys.argv[3]) if len(sys.argv)>3 else 0
  cursor_id=sys.argv[4] if len(sys.argv)>4 else ''
- rows=query('SELECT id,hash,body,created FROM houses WHERE created>? OR (created=? AND id>?) ORDER BY created,id LIMIT 60',[cursor_ms,cursor_ms,cursor_id])['results']
+ table='public_houses' if cmd=='list-public' else 'houses'
+ rows=query('SELECT id,hash,body,created FROM '+table+' WHERE created>? OR (created=? AND id>?) ORDER BY created,id LIMIT 60',[cursor_ms,cursor_ms,cursor_id])['results']
  out=pathlib.Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
  data=[]
  for row in rows:
@@ -178,3 +179,11 @@ elif cmd=='withdraw':
  id=sys.argv[2];bank=json.loads((root/'community.json').read_text());new=[x for x in bank if x.get('id')!=id]
  assert len(new)<len(bank);(root/'community.json').write_text(json.dumps(new,separators=(',',':'))+'\n')
  print('Removed from local bank. COMMIT AND PUBLISH. Already downloaded copies cannot be revoked.')
+
+elif cmd=='remove-public':
+ id,expected=sys.argv[2:4]
+ assert re.fullmatch(r'[a-f0-9-]{36}',id) and re.fullmatch(r'[a-f0-9]{64}',expected)
+ rows=query('SELECT hash,body FROM public_houses WHERE id=?',[id])['results'];assert len(rows)==1 and rows[0]['hash']==expected
+ assert hashlib.sha256(rows[0]['body'].encode()).hexdigest()==expected
+ query('DELETE FROM public_houses WHERE id=? AND hash=?',[id,expected])
+ print('Public house removed by exact ID+hash. Verify public gallery; already downloaded copies cannot be revoked.')
