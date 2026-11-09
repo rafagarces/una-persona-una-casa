@@ -100,7 +100,7 @@ main{position:fixed;top:var(--header-space);right:0;bottom:var(--nav-space);left
 .stage{width:min(100%,640px,calc(100svh - 230px - env(safe-area-inset-bottom)))}
 @media(min-width:761px){:root{--nav-space:calc(92px + env(safe-area-inset-bottom))}.home>.art{width:min(91vw,calc(100svh - 262px - env(safe-area-inset-bottom)),680px)}}
 @media(max-width:760px){.stage{width:min(100%,640px,calc(100svh - 190px - env(safe-area-inset-bottom)))}}
-@media(max-height:480px) and (orientation:landscape){:root{--header-space:calc(56px + env(safe-area-inset-top))}.work-grid{gap:20px}.stage{width:min(100%,calc(100svh - 180px - env(safe-area-inset-bottom)))}}
+@media(max-height:480px) and (orientation:landscape){:root{--header-space:calc(56px + env(safe-area-inset-top))}.work-grid{gap:20px}.stage{width:min(100%,calc(100svh - 240px - env(safe-area-inset-bottom)))}}
 
 .tabs button{white-space:nowrap;min-width:0}
 @media(max-width:350px){.tabs button{padding-left:12px;padding-right:12px;font-size:14px}}
