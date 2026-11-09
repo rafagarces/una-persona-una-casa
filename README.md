@@ -75,3 +75,7 @@ Sin revisión previa para nuevas casas. Seguimiento diario posterior mediante re
 
 ## Lápiz y ceras / rv5 (9 noviembre)
 Fila de herramientas: Recortar, Lápiz, Cera, Goma. Lápiz y Cera dibujan sobre la casa terminada en el lienzo 0..100, sin tocar piezas. rv4 sigue congelado y no admite `ink`. Las casas nuevas son rv5: mismo contenido que rv4 (`renderer-v4.js` las pinta sin cambios, misma semilla y marcado) más `ink:[{k:'p'|'w',c,pts}]` opcional. `renderer-v5.js` es el único sitio que valida y dibuja ink y lo usan editor, tarjetas y visor mediante `rendererFor(5)`. Lápiz solo grafito `#3a3940`; cera usa los 8 colores de papel. Máx. 40 trazos, 2-120 puntos por trazo, 1600 en total, coordenadas redondeadas a 0,1. La Goma borra trazos enteros tocados. Deshacer comparte pila con los recortes. El worker acepta `rv:5`, conserva `ink` y lo descarta en rv4. Despliegue: worker primero, frontend después. Una pestaña antigua que envíe rv4 sigue funcionando.
+
+## Desarrollo y build
+
+Las fuentes legibles están en `src/` (los seis `renderer-*.js`, `app.js` y `ui-v2.css`). Los archivos servidos en la raíz se generan minificados con `npm run build` (terser + clean-css) y no se editan a mano. Flujo: editar `src/`, ejecutar `npm run build` (o dejar que lo haga la asistencia al desplegar), pasar las pruebas y hacer push de fuentes y generados juntos. Las pruebas (`scripts/test-*.cjs`) se ejecutan sobre los archivos generados en la raíz.

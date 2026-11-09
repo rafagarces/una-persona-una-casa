@@ -1,0 +1,12 @@
+{
+  "name": "una-persona-una-casa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-min.mjs"
+  },
+  "devDependencies": {
+    "clean-css": "^5.3.3",
+    "terser": "^5.51.2"
+  }
+}
