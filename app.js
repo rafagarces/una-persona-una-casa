@@ -4,17 +4,14 @@ var $=function(id){return document.getElementById(id)},SVGNS='http://www.w3.org/
 var PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a'],PAPER_NAMES=['Crema','Rosa','Rojo','Azul','Verde','Ocre','Gris','Noche'];
 var INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34'];
 var KINDS=['wall','door','window','roof'];
-var WAXES=PAPERS.slice(),GRAPHITE='#3a3940',mode='cut',tool='cut',wax=WAXES[0],ink=[],inkLive=null,erasing=null;
+var WAXES=PAPERS.slice(),GRAPHITE=CasasV5.GRAPHITE,mode='cut',tool='cut',wax=WAXES[0],ink=[],inkLive=null,erasing=null;
 var ENDPOINT='https://casas-de-papel-pieces.rafagarces87-store.workers.dev';
 var draft={v:2,kind:'window',color:PAPERS[3],material:'pencil',outline:null,marks:[]};
 var KEY='casas-piece-v2',DESIGN_KEY='casas-design-v1',layers=[],base=null,tints={},omit=[],selected=null,previewSeed=null,pending=[],drawing=null,cursor=[50,50],kbUsed=false,undoStack=[],houseBusy=false,submittedHouses={},homeBackground='#a9c3dd',homeSeed=0,currentView='home',COMMUNITY_LIST=[];
 var KIND_NAME={wall:'Pared',door:'Puerta',window:'Ventana',roof:'Tejado'},KIND_ART={wall:'la pared',door:'la puerta',window:'la ventana',roof:'el tejado'};
 function validPts(a,min,max){return Array.isArray(a)&&a.length>=min&&a.length<=max&&a.every(function(p){return Array.isArray(p)&&p.length===2&&p.every(function(n){return Number.isFinite(n)&&n>=0&&n<=100})})}
 function valid(p){return p&&p.v===2&&KINDS.includes(p.kind)&&PAPERS.includes(p.color)&&['pencil','wax'].includes(p.material)&&(p.outline===null||validPts(p.outline,3,160))&&Array.isArray(p.marks)&&p.marks.length<=12&&p.marks.reduce(function(n,s){return n+s.points.length},0)<=400&&p.marks.every(function(s){return INKS.includes(s.color)&&[1,2,3].includes(s.width)&&validPts(s.points,1,60)})}
-function validInk(a){return Array.isArray(a)&&a.length<=40&&a.every(function(s){return s&&(s.k==='p'&&s.c===GRAPHITE||s.k==='w'&&WAXES.includes(s.c))&&validPts(s.pts,2,120)})&&a.reduce(function(n,s){return n+s.pts.length},0)<=1600}
-function inkD(p){var d='M'+p[0].join(' ');for(var i=1;i<p.length-1;i++){d+='Q'+p[i].join(' ')+' '+((p[i][0]+p[i+1][0])/2)+' '+((p[i][1]+p[i+1][1])/2)}return d+'L'+p[p.length-1].join(' ')}
-function inkNode(s){var g=el('g',{'class':'ink'}),d=inkD(s.pts);if(s.k==='p'){g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.45,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.88}))}else{g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':2.4,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.82}));g.appendChild(el('path',{d:d,fill:'none',stroke:'#fff','stroke-width':1.1,'stroke-linecap':'butt','stroke-dasharray':'.5 1.1',opacity:.2}))}return g}
-function inkOn(target,list){var s=target&&target.querySelector&&target.querySelector('svg');if(!s||!list||!list.length||!validInk(list))return;var g=el('g',{'pointer-events':'none'});list.forEach(function(x){g.appendChild(inkNode(x))});s.appendChild(g)}
+function validInk(a){return CasasV5.validInk(a)}
 function setText(id,text){$(id).textContent=text}
 function cp(x){return JSON.parse(JSON.stringify(x))}
 function layer(k){return layers.find(function(l){return l.kind===(k||draft.kind)})}
@@ -48,15 +45,15 @@ async function loadHouses(){
  if(currentView==='gallery')paintGallery();
 }
 loadHouses();
-function validHouse(h){if(!h||h.v!==1||![1,2,3,4].includes(h.rv)||!Number.isInteger(h.seed)||h.seed<0||h.seed>4294967295)return false;if(h.base&&(!(h.rv===3||h.rv===4)||h.base.rv!==2||h.base.base||h.base.seed!==h.seed||!validHouse(h.base)))return false;if(h.rv===4)return (h.ink==null||validInk(h.ink))&&Array.isArray(h.layers)&&h.layers.length<=4&&new Set(h.layers.map(function(l){return l.kind})).size===h.layers.length&&h.layers.reduce(function(n,l){return n+(l.pieces||[]).length},0)<=24&&h.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.length&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})});return ['wall','roof','door'].every(function(k){return !h[k]||(valid(h[k])&&h[k].kind===k)})&&Array.isArray(h.windows)&&h.windows.length<=4&&h.windows.every(function(w){return valid(w)&&w.kind==='window'})}
+function validHouse(h){if(!h||h.v!==1||![1,2,3,4,5].includes(h.rv)||!Number.isInteger(h.seed)||h.seed<0||h.seed>4294967295)return false;if(h.base&&(!(h.rv===3||h.rv===4||h.rv===5)||h.base.rv!==2||h.base.base||h.base.seed!==h.seed||!validHouse(h.base)))return false;if(h.rv===4||h.rv===5)return (h.ink==null||(h.rv===5&&validInk(h.ink)))&&Array.isArray(h.layers)&&h.layers.length<=4&&new Set(h.layers.map(function(l){return l.kind})).size===h.layers.length&&h.layers.reduce(function(n,l){return n+(l.pieces||[]).length},0)<=24&&h.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.length&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})});return ['wall','roof','door'].every(function(k){return !h[k]||(valid(h[k])&&h[k].kind===k)})&&Array.isArray(h.windows)&&h.windows.length<=4&&h.windows.every(function(w){return valid(w)&&w.kind==='window'})}
 var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110967, 118886, 134724, 142643, 166400, 174319, 190157, 198076, 205995, 213914, 221833, 229752, 237671, 245590, 261428, 277266, 301023, 308942, 316861, 324780, 364375];
-function rendererFor(rv){return rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:CasasV2}
+function rendererFor(rv){return rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:CasasV2}
 function paintCard(grid,item,index,set){
   var card=document.createElement('button');card.type='button';card.className='gallery-card';
   card.setAttribute('aria-label',item.label+'. Abrir en grande. Casa '+(index+1)+' de '+set.length+'.');
   card.onclick=function(){openViewer(set,index,card)};
   var art=document.createElement('div');art.className='art';art.setAttribute('aria-hidden','true');card.appendChild(art);grid.appendChild(card);
-  try{var r=rendererFor(item.rv).render(art,item.design,item.seed);inkOn(art,item.design&&item.design.ink);card.style.background=r.background}catch(e){card.remove()}
+  try{var r=rendererFor(item.rv).render(art,item.design,item.seed);card.style.background=r.background}catch(e){card.remove()}
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 function paintGallery(){
@@ -75,7 +72,7 @@ function paintViewer(){
   var item=viewerSet[viewerIndex],d=$('viewer'),r=null;
   try{
     if(item.example)CasasV2.setCommunity([]);
-    try{$('viewer-art').replaceChildren();r=rendererFor(item.rv).render($('viewer-art'),item.design,item.seed);inkOn($('viewer-art'),item.design&&item.design.ink)}finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
+    try{$('viewer-art').replaceChildren();r=rendererFor(item.rv).render($('viewer-art'),item.design,item.seed)}finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
   }catch(e){if(d.open)d.close();return}
   d.style.background=r.background;d.style.setProperty('--onpage',onpage(r.background));
   setText('viewer-label',item.label+', '+(viewerIndex+1)+' de '+viewerSet.length);
@@ -93,8 +90,8 @@ $('viewer-close').onclick=function(){$('viewer').close()};
 $('viewer').onclose=function(){viewerSet=null;if(viewerReturnFocus&&document.contains(viewerReturnFocus))viewerReturnFocus.focus()};
 $('viewer').onkeydown=function(e){if(e.key==='ArrowLeft'){e.preventDefault();stepViewer(-1)}else if(e.key==='ArrowRight'){e.preventDefault();stepViewer(1)}};
 (function(){var start=null,stage=$('viewer-stage');stage.onpointerdown=function(e){if(e.target.closest('button'))return;start={x:e.clientX,y:e.clientY}};stage.onpointerup=function(e){if(!start)return;var dx=e.clientX-start.x,dy=e.clientY-start.y;start=null;if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.4)stepViewer(dx<0?1:-1)};stage.onpointercancel=function(){start=null}})();
-function houseSnapshot(){var h={v:1,rv:4,seed:previewSeed};if(base){h.base=base;if(Object.keys(tints).length)h.tints=tints;if(omit.length)h.omit=omit}h.layers=layers;if(ink.length)h.ink=ink;return JSON.stringify(h)}
-var previewBackground='#f7f5f0';function preview(){if($('workshop').hidden)return;var r=CasasV4.render($('preview'),JSON.parse(houseSnapshot()),previewSeed);inkOn($('preview'),ink);previewBackground=r.background;$('stage').style.background=r.background}
+function houseSnapshot(){var h={v:1,rv:5,seed:previewSeed};if(base){h.base=base;if(Object.keys(tints).length)h.tints=tints;if(omit.length)h.omit=omit}h.layers=layers;if(ink.length)h.ink=ink;return JSON.stringify(h)}
+var previewBackground='#f7f5f0';function preview(){if($('workshop').hidden)return;var r=CasasV5.render($('preview'),JSON.parse(houseSnapshot()),previewSeed);previewBackground=r.background;$('stage').style.background=r.background}
 function resetCanvas(){pending=[];drawing=null;kbUsed=false}
 function changed(){setText('house-status','');sync();preview();saveDesign()}
 function controls(){var p=selectedPiece();if(mode==='draw'&&!designCount()){tool='cut';applyMode()}for(var k in toolBtns)if(k!=='cut')toolBtns[k].disabled=!designCount();$('undo').disabled=!pending.length&&!undoStack.length;$('clear').disabled=!pending.length&&!designCount();$('close-outline').textContent=p&&!pending.length?'Nuevo recorte':'Cerrar recorte';$('close-outline').disabled=pending.length<3&&!p;$('submit-house').disabled=!designCount()||houseBusy||!!submittedHouses[houseSnapshot()];setText('work-help',mode==='draw'?'Dibuja encima de la casa.':pending.length>=3?'Toca el primer punto para cerrar, o pulsa Cerrar recorte.':p?'Recorte seleccionado. Cambia su papel o pulsa Nuevo recorte para añadir otro.':'Dibuja el contorno: arrastra, o toca punto a punto. Cada recorte se añade a esta capa.')}
@@ -104,7 +101,7 @@ function paintSwatches(){var p=selectedPiece(),c=p?p.color:draft.color;document.
 function sync(){paintSlots();paperName();paintSwatches();controls();paint()}
 function el(name,attrs){var n=document.createElementNS(SVGNS,name);for(var k in attrs)n.setAttribute(k,attrs[k]);return n}
 function ptsToD(pts,close){return 'M'+pts.map(function(p){return p.join(' ')}).join('L')+(close?'Z':'')}
-function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(inkNode(inkLive));return}var p=selectedPiece();if(p&&selected!=='base'){g.appendChild(el('path',{d:ptsToD(p.outline,true),'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:ptsToD(p.outline,true),fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3)g.appendChild(el('path',{d:ptsToD(live,true),fill:draft.color,opacity:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));g.appendChild(el('path',{d:ptsToD(live),'class':'pending'}))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
+function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(CasasV5.strokeNode(inkLive));return}var p=selectedPiece();if(p&&selected!=='base'){g.appendChild(el('path',{d:ptsToD(p.outline,true),'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:ptsToD(p.outline,true),fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3)g.appendChild(el('path',{d:ptsToD(live,true),fill:draft.color,opacity:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));g.appendChild(el('path',{d:ptsToD(live),'class':'pending'}))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
 function point(e){var b=$('drawing').getBoundingClientRect();return [Math.max(0,Math.min(100,Math.round((e.clientX-b.left)/b.width*1000)/10)),Math.max(0,Math.min(100,Math.round((e.clientY-b.top)/b.height*1000)/10))]}
 function perp(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return Math.hypot(p[0]-a[0],p[1]-a[1]);return Math.abs(dy*p[0]-dx*p[1]+b[0]*a[1]-b[1]*a[0])/L}
 function simplify(pts,eps){

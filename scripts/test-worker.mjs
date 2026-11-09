@@ -37,10 +37,11 @@ for(const bad of [{...h4,layers:[h4.layers[0],h4.layers[0]]},{...h4,layers:[{kin
 console.log('rv4: multicolor independent cutouts, max24+7base, unique roles, matching types, no empty/recursive misuse: PASS');
 
 // Ink strokes over rv4 houses: closed palettes, bounded, geometry only, rounded to 0.1.
-{const base={v:1,rv:4,seed:7,layers:[{kind:'wall',pieces:[p]}]};
+{const base={v:1,rv:5,seed:7,layers:[{kind:'wall',pieces:[p]}]};
  const ink=[{k:'p',c:'#3a3940',pts:[[1,1.04],[50,50]]},{k:'w',c:'#b04a41',pts:[[0,0],[100,100]]}];
  const out=normalizeHouse({...base,ink});assert.equal(out.ink.length,2);assert.deepEqual(out.ink[0].pts[0],[1,1]);
  assert.equal(normalizeHouse(base).ink,undefined);assert.equal(normalizeHouse({...base,ink:[]}).ink,undefined);
  for(const bad of [[{k:'x',c:'#3a3940',pts:[[1,1],[2,2]]}],[{k:'p',c:'#ff0000',pts:[[1,1],[2,2]]}],[{k:'w',c:'#b04a41',pts:[[1,1]]}],[{k:'w',c:'#b04a41',pts:[[1,101],[2,2]]}],[{k:'w',c:'#b04a41',pts:Array(121).fill([1,1])}],Array(41).fill(ink[0]),Array(14).fill({k:'w',c:'#b04a41',pts:Array(120).fill([1,1])}),'x'])assert.throws(()=>normalizeHouse({...base,ink:bad}));
  assert.equal(normalizeHouse({v:1,rv:3,seed:7,windows:[],wall:p,ink}).ink,undefined);
+ assert.equal(normalizeHouse({...base,rv:4,ink}).ink,undefined);assert.equal(normalizeHouse({...base,rv:4,ink}).rv,4);assert.equal(normalizeHouse(base).rv,5);
  console.log('PASS ink normalization: palettes, limits, rounding, optional');}
