@@ -36,7 +36,7 @@ fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
 function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();preview();saveDesign()}if(name==='gallery'){paintGallery();loadHouses(true)}window.scrollTo(0,0);if(name!=='home')$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
-var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedVisitors=null,examplesPainted=false,renderQueue=[],renderScheduled=false;
+var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedGallery=null,renderQueue=[],renderScheduled=false;
 function queueRender(fn){renderQueue.push(fn);if(renderScheduled)return;renderScheduled=true;
  if(!window.requestAnimationFrame){while(renderQueue.length)renderQueue.shift()();renderScheduled=false;return}
  requestAnimationFrame(function flush(){var n=8;while(n--&&renderQueue.length)renderQueue.shift()();if(renderQueue.length)requestAnimationFrame(flush);else renderScheduled=false})}
@@ -80,19 +80,13 @@ function paintCard(grid,item,index,set){
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 function paintGallery(){
+  // One grid, one carousel: visitor houses first, then the fixed examples, no sections.
   var sig=bankSig();
-  if(sig!==paintedVisitors){
-    paintedVisitors=sig;
-    var vg=$('gallery-grid');vg.replaceChildren();
-    var visitors=(housesBank||[]).map(function(h){return {design:h,seed:h.seed,rv:h.rv,label:'Casa de visitante hecha con recortes de papel'}});
-    $('gallery-visitors').hidden=!visitors.length;
-    visitors.forEach(function(item,i){paintCard(vg,item,i,visitors)});
-  }
-  // Examples are fixed rv2 seeds with an empty shared bank: they paint once per session, never on visitor changes.
-  if(!examplesPainted){
-    examplesPainted=true;
-    var eg=$('examples-grid');eg.replaceChildren();
-    EXAMPLE_SET.forEach(function(item,i){paintCard(eg,item,i,EXAMPLE_SET)})
+  if(sig!==paintedGallery){
+    paintedGallery=sig;
+    var grid=$('gallery-grid');grid.replaceChildren();
+    var items=(housesBank||[]).map(function(h){return {design:h,seed:h.seed,rv:h.rv,label:'Casa de visitante hecha con recortes de papel'}}).concat(EXAMPLE_SET);
+    items.forEach(function(item,i){paintCard(grid,item,i,items)});
   }
   setText('gallery-empty',galleryError?'Las casas de visitantes no se han podido cargar. Prueba a recargar.':'');
   $('gallery-empty').hidden=!$('gallery-empty').textContent;

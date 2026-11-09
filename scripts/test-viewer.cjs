@@ -7,7 +7,7 @@ const renderer={render:()=>({background:'#eeeeee'}),setCommunity(){}};const cont
 return {get}}
 (async()=>{
 const h=setup();h.get('open-gallery').onclick();
-const grid=h.get('examples-grid');assert.equal(grid.children.length,30);
+const grid=h.get('gallery-grid');assert.equal(grid.children.length,30);
 const first=grid.children[0];assert.equal(first.attrs['type'],undefined);assert.match(first.attrs['aria-label'],/Abrir en grande/);assert.match(first.attrs['aria-label'],/Casa 1 de 30/);
 first.onclick();assert.equal(h.get('viewer').open,true);assert.equal(h.get('viewer-count').textContent,'1 / 30');assert.match(h.get('viewer-label').textContent,/Casa de ejemplo/);
 h.get('viewer-next').onclick();assert.equal(h.get('viewer-count').textContent,'2 / 30');
