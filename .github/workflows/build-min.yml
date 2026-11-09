@@ -32,6 +32,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app.js renderer-v1.js renderer-v2.js renderer-v3.js renderer-v4.js renderer-v5.js ui-v2.css
+          git add app.js renderer-v1.js renderer-v2.js renderer-v3.js renderer-v4.js renderer-v5.js renderer-v6.js ui-v2.css
           git diff --cached --quiet || git commit -m "Build minificado desde src/ (automático)"
           git push
