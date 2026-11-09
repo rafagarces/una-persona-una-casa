@@ -27,6 +27,19 @@ def clean(x):
  xs=[p[0] for p in outline];ys=[p[1] for p in outline]
  assert abs(area/2)>=15 and max(xs)-min(xs)>=4 and max(ys)-min(ys)>=4
  out={'v':2,'kind':x['kind'],'color':x['color'],'material':x['material'],'outline':outline,'marks':[]}
+ holes=x.get('holes')
+ if holes is not None:
+  # Same scissor-hole rules as worker.normalize (rv6): interior rings, bounded.
+  assert isinstance(holes,list) and len(holes)<=6
+  hp=0;out_holes=[]
+  for h in holes:
+   o=pts(h,3,60);hp+=len(o);assert hp<=200
+   a=0
+   for i,p in enumerate(o):
+    q=o[i-1];a+=q[0]*p[1]-p[0]*q[1]
+   assert abs(a/2)>=2
+   out_holes.append(o)
+  if out_holes:out['holes']=out_holes
  marks=x.get('marks') or []
  assert isinstance(marks,list) and len(marks)<=12
  total=0
@@ -50,7 +63,7 @@ def cleanInk(a):
   out.append({'k':st['k'],'c':st['c'],'pts':q})
  return out
 def cleanHouse(x):
- if x.get('rv') in [4,5]:
+ if x.get('rv') in [4,5,6]:
   assert x.get('v')==1 and type(x.get('seed')) is int and 0<=x['seed']<=4294967295 and isinstance(x.get('layers'),list) and len(x['layers'])<=4
   out={'v':1,'rv':x['rv'],'seed':x['seed']}
   if x.get('base') is not None:
@@ -63,9 +76,9 @@ def cleanHouse(x):
   for l in x['layers']:
    assert isinstance(l,dict) and l.get('kind') in ['wall','door','roof','window'] and l['kind'] not in seen and isinstance(l.get('pieces'),list) and len(l['pieces'])>0
    seen.add(l['kind']);count+=len(l['pieces']);assert count<=24
-   ps=[clean(p) for p in l['pieces']];assert all(p['kind']==l['kind'] for p in ps);out['layers'].append({'kind':l['kind'],'pieces':ps})
+   ps=[clean(p) for p in l['pieces']];assert all(p['kind']==l['kind'] for p in ps);assert x['rv']==6 or all('holes' not in p for p in ps);out['layers'].append({'kind':l['kind'],'pieces':ps})
   assert out.get('base') or count
-  if x['rv']==5 and x.get('ink') is not None:
+  if x['rv'] in [5,6] and x.get('ink') is not None:
    ink=cleanInk(x['ink'])
    if ink:out['ink']=ink
   return out
@@ -136,9 +149,9 @@ elif cmd in ['list-houses','list-public']:
    row['house']=cleanHouse(raw);data.append(row)
   except Exception:print('Invalid quarantined row',row['id'])
  (out/'private-houses.json').write_text(json.dumps(data))
- engine=(root/'renderer-v1.js').read_text()+'\n'+(root/'renderer-v2.js').read_text()+'\n'+(root/'renderer-v3.js').read_text()+'\n'+(root/'renderer-v4.js').read_text()+'\n'+(root/'renderer-v5.js').read_text()
+ engine=(root/'renderer-v1.js').read_text()+'\n'+(root/'renderer-v2.js').read_text()+'\n'+(root/'renderer-v3.js').read_text()+'\n'+(root/'renderer-v4.js').read_text()+'\n'+(root/'renderer-v5.js').read_text()+'\n'+(root/'renderer-v6.js').read_text()
  payload=json.dumps(data).replace('<','\\u003c')
- page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de casas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:150px;height:150px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada de casas</h1><p>Datos no fiables de visitantes. Revisar la casa completa y cada recorte aislado: pueden aparecer mensajes o símbolos solo al combinar piezas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces y firmas. Aprobar la casa NO incorpora sus piezas al banco de piezas. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';\nitems.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · casa rv'+row.house.rv+' semilla '+row.house.seed;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code);const d=document.createElement('div');d.className='house';a.append(d);const design=row.house;let out=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).render(d,design,row.house.seed);d.style.background=out.background;a.append(r);['wall','roof','door'].forEach(k=>{if(row.house[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).pieceSVG(row.house[k]);r.append(p)}});(row.house.windows||[]).forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).pieceSVG(w);r.append(p)});(row.house.layers||[]).forEach(l=>l.pieces.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV4.pieceSVG(w);r.append(p)}));if(row.house.base){const b=row.house.base;['wall','roof','door'].forEach(k=>{if(b[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(b[k]);r.append(p)}});b.windows.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(w);r.append(p)})};document.querySelector('#items').append(a)});</script></html>'''
+ page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de casas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:150px;height:150px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada de casas</h1><p>Datos no fiables de visitantes. Revisar la casa completa y cada recorte aislado: pueden aparecer mensajes o símbolos solo al combinar piezas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces y firmas. Aprobar la casa NO incorpora sus piezas al banco de piezas. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';\nitems.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · casa rv'+row.house.rv+' semilla '+row.house.seed;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code);const d=document.createElement('div');d.className='house';a.append(d);const design=row.house;let out=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:row.house.rv===6?CasasV6:CasasV2).render(d,design,row.house.seed);d.style.background=out.background;a.append(r);['wall','roof','door'].forEach(k=>{if(row.house[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).pieceSVG(row.house[k]);r.append(p)}});(row.house.windows||[]).forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).pieceSVG(w);r.append(p)});(row.house.layers||[]).forEach(l=>l.pieces.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV6.pieceSVG(w);r.append(p)}));if(row.house.base){const b=row.house.base;['wall','roof','door'].forEach(k=>{if(b[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(b[k]);r.append(p)}});b.windows.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(w);r.append(p)})};document.querySelector('#items').append(a)});</script></html>'''
  (out/'houses.html').write_text(page)
  print(json.dumps({'private_preview':str(out/'houses.html'),'pending':len(data),'next_cursor':[rows[-1]['created'],rows[-1]['id']] if len(rows)==60 else None,'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
 elif cmd in ['approve','reject']:

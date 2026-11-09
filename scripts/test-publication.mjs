@@ -29,3 +29,19 @@ console.log('PASS direct publication, explicit action, dedup, public-only galler
  row=null;snap.rv=4;await send();assert.equal(JSON.parse(row.body).ink,undefined);
  console.log('PASS rv5 same snapshot wall+door+ink: normalize == published == fresh gallery read, hash over normalized body, rv4 drops ink');
 }
+
+// rv6 with holes: editor payload -> normalize -> publish -> fresh GET keeps holes byte-for-byte; hash over normalized body.
+{
+ const snap6={v:1,rv:6,seed:4243,layers:[{kind:'wall',pieces:[{v:2,kind:'wall',color:'#4a6a9e',material:'pencil',outline:[[15,45],[65,45],[65,85],[15,85]],marks:[],holes:[[[25,55],[35,55],[35,65],[25,65]]]}]}]};
+ const {normalizeHouse}=await import('../backend/worker.mjs');
+ const norm=normalizeHouse(JSON.parse(JSON.stringify(snap6)));
+ assert.deepEqual(norm.layers[0].pieces[0].holes,snap6.layers[0].pieces[0].holes);
+ let row=null;
+ const env6={DB:{prepare(sql){return {bind(...a){return {async first(){return row?{id:row.id}:null},async all(){return {results:row?[row]:[]}},async run(){row={id:a[0],hash:a[1],body:a[2],created:a[3]};return {meta:{changes:1}}}}}}}}};
+ const send=()=>worker.fetch(new Request('https://x/publish-house',{method:'POST',headers:{Origin:'https://rafagarces.github.io','Content-Type':'application/json'},body:JSON.stringify({action:'publish',house:snap6})}),env6);
+ assert.equal((await send()).status,201);
+ const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(norm))))].map(n=>n.toString(16).padStart(2,'0')).join('');
+ assert.equal(row.hash,digest);assert.equal((await send()).status,200);
+ const got=(await (await worker.fetch(new Request('https://x/gallery'),env6)).json()).houses[0];delete got.id;assert.deepEqual(got,norm);
+ console.log('PASS rv6 publication: holes survive normalize -> publish -> gallery read; hash over normalized body');
+}

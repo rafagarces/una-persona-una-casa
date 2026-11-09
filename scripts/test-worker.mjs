@@ -45,3 +45,20 @@ console.log('rv4: multicolor independent cutouts, max24+7base, unique roles, mat
  assert.equal(normalizeHouse({v:1,rv:3,seed:7,windows:[],wall:p,ink}).ink,undefined);
  assert.equal(normalizeHouse({...base,rv:4,ink}).ink,undefined);assert.equal(normalizeHouse({...base,rv:4,ink}).rv,4);assert.equal(normalizeHouse(base).rv,5);
  console.log('PASS ink normalization: palettes, limits, rounding, optional');}
+
+// rv6 scissor holes: interior rings preserved and bounded; holes rejected on rv4/rv5; ink allowed on rv6.
+const h6={v:1,rv:6,seed:9,layers:[{kind:'wall',pieces:[{...p,holes:[[[20,20],[30,20],[30,30],[20,30]]]}]}]};
+const n6=normalizeHouse(h6);assert.equal(n6.rv,6);assert.deepEqual(n6.layers[0].pieces[0].holes,[[[20,20],[30,20],[30,30],[20,30]]]);
+assert.equal(normalizeHouse({v:1,rv:6,seed:9,layers:[{kind:'wall',pieces:[{...p,holes:[]}]}]}).layers[0].pieces[0].holes,undefined);
+assert.equal(normalizeHouse({...h6,ink:[{k:'p',c:'#3a3940',pts:[[1,1],[5,5]]}]}).ink.length,1);
+const big=Array.from({length:55},(_,i)=>{const a=i/55*2*Math.PI;return [50+10*Math.cos(a),50+10*Math.sin(a)]});
+for(const bad of [
+ {...p,holes:Array(7).fill([[20,20],[30,20],[30,30],[20,30]])},
+ {...p,holes:[[[20,20],[30,20]]]},
+ {...p,holes:[Array(61).fill([20,20])]},
+ {...p,holes:[[[20,20],[20.5,20],[20.2,20.2]]]},
+ {...p,holes:[big,big,big,big]},
+ {...p,holes:[[[20,20],[30,20],[30,30],[20,101]]]},
+])assert.throws(()=>normalizeHouse({v:1,rv:6,seed:9,layers:[{kind:'wall',pieces:[bad]}]}));
+for(const rv of [4,5])assert.throws(()=>normalizeHouse({v:1,rv,seed:9,layers:[{kind:'wall',pieces:[{...p,holes:[[[20,20],[30,20],[30,30],[20,30]]]}]}]}));
+console.log('PASS rv6: holes normalized, bounded, degenerate/oversized rejected, holes require rv6, ink allowed');

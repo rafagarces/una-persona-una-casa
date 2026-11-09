@@ -11,6 +11,13 @@ export function normalize(x){
  let area=0;for(let i=0,j=outline.length-1;i<outline.length;j=i++)area+=outline[j][0]*outline[i][1]-outline[i][0]*outline[j][1];
  const xs=outline.map(p=>p[0]),ys=outline.map(p=>p[1]);
  if(Math.abs(area/2)<15||Math.max(...xs)-Math.min(...xs)<4||Math.max(...ys)-Math.min(...ys)<4)throw Error('degenerate');
+ // Scissor holes (rv6): optional interior rings, rendered with fill-rule evenodd. Same editor limits.
+ let holes;
+ if(x.holes!=null){
+  if(!Array.isArray(x.holes)||x.holes.length>6)throw Error('holes');
+  let hp=0;
+  holes=x.holes.map(h=>{const o=pts(h,3,60,'outline');hp+=o.length;if(hp>200)throw Error('holes');let a=0;for(let i=0,j=o.length-1;i<o.length;j=i++)a+=o[j][0]*o[i][1]-o[i][0]*o[j][1];if(Math.abs(a/2)<2)throw Error('degenerate');return o});
+ }
  if(x.marks==null)x.marks=[];
  if(!Array.isArray(x.marks)||x.marks.length>12)throw Error('marks');
  let total=0;
@@ -19,7 +26,9 @@ export function normalize(x){
   const sp=pts(s.points,1,60,'points');total+=sp.length;if(total>400)throw Error('points');
   return {color:s.color,width:s.width,points:sp};
  });
- return {v:2,kind:x.kind,color:x.color,material:x.material,outline,marks};
+ const out={v:2,kind:x.kind,color:x.color,material:x.material,outline,marks};
+ if(holes&&holes.length)out.holes=holes;
+ return out;
 }
 // Whole-house proposals (v1): the visitor's own composed house, pinned to a render version and seed.
 const WAXES=PAPERS,GRAPHITE='#3a3940';
@@ -33,14 +42,14 @@ export function normalizeInk(a){
  });
 }
 export function normalizeHouse(x){
- if(x&&(x.rv===4||x.rv===5)){
+ if(x&&(x.rv===4||x.rv===5||x.rv===6)){
   if(x.v!==1||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295||!Array.isArray(x.layers)||x.layers.length>4)throw Error('format');
   const out={v:1,rv:x.rv,seed:x.seed};
   if(x.base!=null){if(x.base.rv!==2||x.base.base!=null||x.base.seed!==x.seed)throw Error('format');const legacy=normalizeHouse({v:1,rv:3,seed:x.seed,base:x.base,tints:x.tints,omit:x.omit,windows:[]});out.base=legacy.base;if(legacy.tints)out.tints=legacy.tints;if(legacy.omit)out.omit=legacy.omit}
   else if(x.tints!=null||x.omit!=null)throw Error('format');
   let count=0;const seen=new Set();
-  out.layers=x.layers.map(l=>{if(!l||!['wall','door','roof','window'].includes(l.kind)||seen.has(l.kind)||!Array.isArray(l.pieces)||!l.pieces.length||(count+=l.pieces.length)>24)throw Error('format');seen.add(l.kind);return {kind:l.kind,pieces:l.pieces.map(p=>{const q=normalize(p);if(q.kind!==l.kind)throw Error('format');return q})}});
-  if(!out.base&&!count)throw Error('format');if(x.rv===5&&x.ink!=null){const ink=normalizeInk(x.ink);if(ink.length)out.ink=ink}return out;
+  out.layers=x.layers.map(l=>{if(!l||!['wall','door','roof','window'].includes(l.kind)||seen.has(l.kind)||!Array.isArray(l.pieces)||!l.pieces.length||(count+=l.pieces.length)>24)throw Error('format');seen.add(l.kind);return {kind:l.kind,pieces:l.pieces.map(p=>{const q=normalize(p);if(q.kind!==l.kind)throw Error('format');if(q.holes&&x.rv!==6)throw Error('format');return q})}});
+  if(!out.base&&!count)throw Error('format');if((x.rv===5||x.rv===6)&&x.ink!=null){const ink=normalizeInk(x.ink);if(ink.length)out.ink=ink}return out;
  }
  if(!x||x.v!==1||![1,2,3].includes(x.rv)||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295)throw Error('format');
  const out={v:1,rv:x.rv,seed:x.seed};
@@ -101,5 +110,5 @@ export default {async fetch(req,env){
   const r=await env.DB.prepare(`INSERT INTO ${table} (id,hash,body,created,day) SELECT ?,?,?,?,? WHERE (SELECT n FROM intake_queue WHERE id=1)<600 AND COALESCE((SELECT n FROM intake_days WHERE day=?),0)<60`).bind(id,hash,json,now,day,day).run();
   if(!r.meta.changes)return reply({error:'capacity'},429);
   return reply({id,status:direct?'published':'pending'},201);
- }catch(e){if(e.message?.includes('format')||e.message?.includes('stroke')||e.message?.includes('point')||e.message?.includes('outline')||e.message?.includes('marks')||e.message?.includes('degenerate')||e instanceof SyntaxError)return reply({error:'invalid'},400);return reply({error:'unavailable'},503)}
+ }catch(e){if(e.message?.includes('format')||e.message?.includes('stroke')||e.message?.includes('point')||e.message?.includes('outline')||e.message?.includes('marks')||e.message?.includes('holes')||e.message?.includes('degenerate')||e instanceof SyntaxError)return reply({error:'invalid'},400);return reply({error:'unavailable'},503)}
 }};
