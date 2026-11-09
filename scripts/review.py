@@ -8,20 +8,25 @@ Review actual pixels before approval. Only geometric JSON is ever imported.
 import sys,json,pathlib,re,html,hashlib,time
 from cloudflare import query
 root=pathlib.Path(__file__).parents[1]
-COLORS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34']
+PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a']
+INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34']
 def clean(x):
- assert x.get('v')==1 and x['kind'] in ['wall','door','window'] and x['material'] in ['pencil','wax']
- assert isinstance(x['strokes'],list) and 1<=len(x['strokes'])<=45
- out={'v':1,'kind':x['kind'],'material':x['material'],'strokes':[]};total=0
- for s in x['strokes']:
-  assert s['color'] in COLORS and type(s['width']) is int and s['width'] in [1,2,3]
-  assert isinstance(s['points'],list) and 1<=len(s['points'])<=160
-  points=[]
-  for p in s['points']:
+ assert x.get('v')==2 and x['kind'] in ['wall','door','window'] and x['color'] in PAPERS and x['material'] in ['pencil','wax']
+ def pts(a,lo,hi):
+  assert isinstance(a,list) and lo<=len(a)<=hi
+  out=[]
+  for p in a:
    assert isinstance(p,list) and len(p)==2 and all(type(n) in [int,float] and 0<=n<=100 for n in p)
-   points.append([round(n,1) for n in p])
-  total+=len(points);assert total<=1600
-  out['strokes'].append({'color':s['color'],'width':s['width'],'points':points})
+   out.append([round(n,1) for n in p])
+  return out
+ out={'v':2,'kind':x['kind'],'color':x['color'],'material':x['material'],'outline':pts(x['outline'],3,160),'marks':[]}
+ marks=x.get('marks') or []
+ assert isinstance(marks,list) and len(marks)<=12
+ total=0
+ for s in marks:
+  assert s['color'] in INKS and type(s['width']) is int and s['width'] in [1,2,3]
+  sp=pts(s['points'],1,60);total+=len(sp);assert total<=400
+  out['marks'].append({'color':s['color'],'width':s['width'],'points':sp})
  return out
 cmd=sys.argv[1]
 if cmd=='list':
@@ -31,14 +36,18 @@ if cmd=='list':
  rows=query('SELECT id,hash,body,created FROM pieces ORDER BY created LIMIT 60')['results']
  out=pathlib.Path(sys.argv[2]);out.mkdir(parents=True,exist_ok=True)
  data=[]
+ legacy=0
  for row in rows:
-  try:row['piece']=clean(json.loads(row.pop('body')));data.append(row)
+  try:
+   raw=json.loads(row.pop('body'))
+   if raw.get('v')!=2:legacy+=1;print('Legacy v1 row kept private until expiry, not renderable:',row['id']);continue
+   row['piece']=clean(raw);data.append(row)
   except Exception:print('Invalid quarantined row',row['id'])
  (out/'private.json').write_text(json.dumps(data))
  # Reuse the exact house renderer, but never embed data as HTML or load remote scripts.
  source=(root/'index.html').read_text();engine=source[source.index('<script>')+8:source.index('</script>')]
  payload=json.dumps(data).replace('<','\\u003c')
- page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de piezas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:180px;height:180px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada</h1><p>Datos no fiables de visitantes. Revisar dibujo y ambas casas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces, firmas y contenidos que no sean piezas de casa. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';
+ page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de piezas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:180px;height:180px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada</h1><p>Datos no fiables de visitantes. Revisar el recorte aislado y ambas casas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces, firmas y contenidos que no sean piezas de casa. La casa debe componer sobre la silueta real de la pieza. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';
 items.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · '+row.piece.kind+' · '+row.piece.material;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code,r);document.querySelector('#items').append(a);const raw=document.createElement('div');raw.className='house';raw.style.background='#f7f7f7';raw.innerHTML=Casas.pieceSVG(row.piece);r.append(raw);[10304,10975].forEach(seed=>{const d=document.createElement('div');d.className='house';r.append(d);let out=Casas.render(d,row.piece,seed);d.style.background=out.background});});</script></html>'''
  (out/'index.html').write_text(page)
  print(json.dumps({'private_preview':str(out/'index.html'),'pending':len(data),'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
