@@ -1,0 +1,37 @@
+name: build-min
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/build-min.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/build-min.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: pruebas offline sobre los archivos generados
+        run: |
+          node scripts/test-editor.cjs
+          node scripts/test-renderer.cjs
+          node scripts/test-rv5.cjs
+          node scripts/test-viewer.cjs
+      - name: publica los archivos generados si cambiaron
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js renderer-v1.js renderer-v2.js renderer-v3.js renderer-v4.js renderer-v5.js ui-v2.css
+          git diff --cached --quiet || git commit -m "Build minificado desde src/ (automático)"
+          git push
