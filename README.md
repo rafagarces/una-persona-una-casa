@@ -1,4 +1,4 @@
-# Una persona una vivienda
+# Una persona, una casa
 
 Generador de collages de casas (antes «Casas de papel»). Sitio estático en GitHub Pages, sin cuentas para visitantes, analítica ni servicios de pago añadidos.
 
