@@ -65,7 +65,18 @@ function paintCard(grid,item,index,set){
   card.setAttribute('aria-label',item.label+'. Abrir en grande. Casa '+(index+1)+' de '+set.length+'.');
   card.onclick=function(){openViewer(set,index,card)};
   var art=document.createElement('div');art.className='art';art.setAttribute('aria-hidden','true');card.appendChild(art);grid.appendChild(card);
-  queueRender(function(){try{var r=rendererFor(item.rv).render(art,item.design,item.seed);card.style.background=r.background}catch(e){card.remove()}});
+  queueRender(function(){
+    // Render in the connected offscreen host: the grid can be display:none (user left the tab) and getBBox needs layout.
+    if(item.example)CasasV2.setCommunity([]);
+    try{
+      var tmp=document.createElement('div');viewerHost().appendChild(tmp);
+      var r=rendererFor(item.rv).render(tmp,item.design,item.seed);
+      if(tmp.firstChild)art.replaceChildren(tmp.firstChild);
+      if(tmp.remove)tmp.remove();else if(tmp.parentNode&&tmp.parentNode.removeChild)tmp.parentNode.removeChild(tmp);
+      card.style.background=r.background;
+    }catch(e){card.remove()}
+    finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
+  });
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 function paintGallery(){
@@ -81,8 +92,7 @@ function paintGallery(){
   if(!examplesPainted){
     examplesPainted=true;
     var eg=$('examples-grid');eg.replaceChildren();
-    CasasV2.setCommunity([]);
-    try{EXAMPLE_SET.forEach(function(item,i){paintCard(eg,item,i,EXAMPLE_SET)})}finally{CasasV2.setCommunity(COMMUNITY_LIST)}
+    EXAMPLE_SET.forEach(function(item,i){paintCard(eg,item,i,EXAMPLE_SET)})
   }
   setText('gallery-empty',galleryError?'Las casas de visitantes no se han podido cargar. Prueba a recargar.':'');
   $('gallery-empty').hidden=!$('gallery-empty').textContent;
