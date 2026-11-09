@@ -34,15 +34,23 @@ function helpText(){
 }
 function sync(){syncKinds();paint();paintSlots();controls();paperName()}
 function paintSlots(){
-  var box=$('design-slots');box.replaceChildren();
-  ['wall','roof','door','window'].forEach(function(k){
+  document.querySelectorAll('#kinds .tool').forEach(function(b){
+    var k=b.getAttribute('data-kind');
     var n=k==='window'?design.windows.length:(design[k]?1:0);
-    var chip=document.createElement('span');chip.className='slot'+(n?' filled':'');
-    chip.appendChild(document.createTextNode(KIND_NAME[k]+(k==='window'&&n>1?' ×'+n:'')+(n?' ✓':'')));
-    if(n){var x=document.createElement('button');x.type='button';x.className='slot-x';x.setAttribute('aria-label','Quitar '+(k==='window'?(n>1?'las ventanas':'la ventana'):KIND_ART[k])+' de tu casa');x.textContent='×';x.onclick=function(){if(k==='window')design.windows=[];else design[k]=null;paintSlots();saveDesign();changed();setText('draft-note',KIND_NAME[k]+' fuera de tu casa: la casa la improvisa de nuevo.')};chip.appendChild(x)}
-    box.appendChild(chip);
+    b.textContent=KIND_NAME[k]+(k==='window'&&n>1?' ×'+n:'')+(n?' ✓':'');
+    b.setAttribute('aria-pressed',String(k===draft.kind));
+    document.querySelector('.kind-x[data-clear='+k+']').hidden=!n;
   });
 }
+var undoStack=[];
+document.querySelectorAll('.kind-x').forEach(function(x){
+  x.onclick=function(){
+    var k=x.getAttribute('data-clear'),prev;
+    if(k==='window'){prev=design.windows;design.windows=[]}else{prev=design[k];design[k]=null}
+    undoStack.push({kind:k,prev:prev});
+    paintSlots();saveDesign();changed();setText('draft-note',KIND_NAME[k]+' fuera de tu casa: la casa la improvisa de nuevo.');
+  };
+});
 function resetCanvas(){draft.outline=null;draft.marks=[];pending=[];drawing=null}
 function designActive(){
   var d={wall:design.wall,door:design.door,roof:design.roof,windows:design.windows.slice()};
@@ -53,8 +61,8 @@ function syncKinds(){document.querySelectorAll('#kinds .tool').forEach(function(
 function proposeTarget(){if(ready())return draft;if(lastAdded)return lastAdded;return design.windows[design.windows.length-1]||design.door||design.roof||design.wall||null}
 function controls(){
   var has=pending.length>0||draft.marks.length>0||ready();
-  $('undo').disabled=!has;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
-  $('add-to-design').disabled=!ready();$('save-design').disabled=!designCount();
+  $('undo').disabled=!has&&!undoStack.length;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
+  $('save-design').disabled=!designCount();
   var pt=proposeTarget();
   $('submit-piece').disabled=!pt||submitBusy||!!submittedMap[JSON.stringify(pt)];
   helpText();
@@ -100,7 +108,15 @@ function finishOutline(raw){
   var xs=pts.map(function(p){return p[0]}),ys=pts.map(function(p){return p[1]});
   var w=Math.max.apply(null,xs)-Math.min.apply(null,xs),h=Math.max.apply(null,ys)-Math.min.apply(null,ys);
   if(pts.length<3||w<4||h<4||area2(pts)<15){pending=[];drawing=null;paint();controls();setText('draft-note','Ese contorno es muy pequeño. Hazlo un poco más grande.');return}
-  draft.outline=pts;pending=[];drawing=null;paint();changed();
+  draft.outline=pts;
+  addDraftToDesign();
+}
+function addDraftToDesign(){
+  var piece={v:2,kind:draft.kind,color:draft.color,material:draft.material,outline:draft.outline,marks:draft.marks},note;
+  if(piece.kind==='window'){undoStack.push({kind:'window',prev:design.windows.slice()});design.windows.push(piece);note='Ventana en tu casa.';if(design.windows.length>4){design.windows.shift();note='Tu casa ya tenía 4 ventanas: se ha sustituido la más antigua.'}}
+  else{undoStack.push({kind:piece.kind,prev:design[piece.kind]});note=KIND_NAME[piece.kind]+(design[piece.kind]?' sustituida en tu casa.':' en tu casa.');design[piece.kind]=piece}
+  lastAdded=piece;
+  resetCanvas();paint();paintSlots();saveDesign();changed();setText('draft-note',note+' Dibuja otra parte cuando quieras.');
 }
 $('drawing').onpointerdown=function(e){
   if(e.button&&e.button!==0)return;
@@ -137,18 +153,11 @@ $('close-outline').onclick=function(){if(pending.length>=3)finishOutline(pending
 function paperName(){$('paper-name').textContent=PAPER_NAMES[PAPERS.indexOf(draft.color)]||''}
 PAPERS.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Papel '+PAPER_NAMES[i]);b.setAttribute('aria-pressed',String(c===draft.color));var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){draft.color=c;paperName();document.querySelectorAll('#papers .swatch').forEach(function(el2){el2.setAttribute('aria-pressed',String(el2===b))});paint();changed()};$('papers').appendChild(b)});
 document.querySelectorAll('#kinds .tool').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-kind');if(k===draft.kind)return;resetCanvas();draft.kind=k;syncKinds();paint();changed();setText('draft-note','Lienzo nuevo para '+KIND_ART[k]+'. '+(designCount()?'Lo que ya añadiste sigue en tu casa.':''))}});
-$('add-to-design').onclick=function(){
-  if(!ready())return;
-  var piece={v:2,kind:draft.kind,color:draft.color,material:draft.material,outline:draft.outline,marks:draft.marks},note;
-  if(piece.kind==='window'){design.windows.push(piece);note='Ventana añadida a tu casa.';if(design.windows.length>4){design.windows.shift();note='Tu casa ya tenía 4 ventanas: se ha sustituido la más antigua.'}}
-  else{note=KIND_NAME[piece.kind]+(design[piece.kind]?' sustituida en tu casa.':' añadida a tu casa.');design[piece.kind]=piece}
-  lastAdded=piece;
-  resetCanvas();paint();paintSlots();saveDesign();changed();setText('draft-note',note+' Dibuja otra parte cuando quieras.');
-};
 $('undo').onclick=function(){
   if(pending.length)pending.pop();
   else if(draft.marks.length)draft.marks.pop();
   else if(ready())draft.outline=null;
+  else if(undoStack.length){var op=undoStack.pop();if(op.kind==='window')design.windows=op.prev;else design[op.kind]=op.prev;saveDesign();paintSlots();setText('draft-note','Último cambio deshecho.')}
   paint();changed();
 };
 $('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){resetCanvas();paint();changed();$('clear-dialog').close()};
@@ -158,5 +167,6 @@ $('save-design').onclick=function(){var svg=$('preview').querySelector('svg');if
 $('submit-piece').onclick=async function(){var piece=proposeTarget();if(submitBusy||!piece)return;submitBusy=true;controls();setText('send-status','Enviando tu pieza…');var snapshot=JSON.stringify(piece),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
  try{var r=await fetch(ENDPOINT+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({piece:JSON.parse(snapshot),consent:true,website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id)throw new Error(result.error||'unavailable');submittedMap[snapshot]=true;setText('send-status','Pieza recibida para revisión. Todavía no está publicada. Referencia '+result.id.slice(0,8)+'. La pieza sigue en tu casa.');try{localStorage.setItem('casas-last-submission',JSON.stringify({id:result.id,time:Date.now()}))}catch(e){}}
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu pieza sigue aquí; descárgala o prueba otro día.':'No hemos podido confirmar el envío. Tu pieza sigue aquí. Puedes reintentarlo: no se duplicará la misma pieza.';setText('send-status',text)}finally{clearTimeout(timer);submitBusy=false;controls();}};
+if(ready())addDraftToDesign();
 window.addEventListener('pagehide',function(){try{localStorage.setItem(KEY,JSON.stringify(draft));saveDesign()}catch(e){}});
 })();
