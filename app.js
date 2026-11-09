@@ -32,19 +32,28 @@ function restore(s){ink=s.ink||[];layers=s.layers;base=s.base;tints=s.tints;omit
 function onpage(bg){var n=parseInt(bg.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;return (.2126*r+.7152*g+.0722*b)/255>.45?'#252525':'#f7f7f7'}
 function fresh(){homeSeed=(Math.random()*4294967296)>>>0;if(previewSeed===null)previewSeed=homeSeed;var r=CasasV2.render($('card'),null,homeSeed);homeBackground=r.background;document.body.style.background=r.background;document.body.style.setProperty('--onpage',onpage(r.background));setText('home-status',r.shared?'Esta casa incluye una pieza compartida.':'')}
 fresh();$('again').onclick=fresh;
-fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))COMMUNITY_LIST=list.filter(valid).slice(0,600);Casas.setCommunity(COMMUNITY_LIST);CasasV2.setCommunity(COMMUNITY_LIST)}).catch(function(){});
+fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))COMMUNITY_LIST=list.filter(valid).slice(0,600);if(typeof Casas!=='undefined')Casas.setCommunity(COMMUNITY_LIST);CasasV2.setCommunity(COMMUNITY_LIST)}).catch(function(){});
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
-function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();preview();saveDesign()}if(name==='gallery'){paintGallery();loadHouses()}window.scrollTo(0,0);if(name!=='home')$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}
+function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();preview();saveDesign()}if(name==='gallery'){paintGallery();loadHouses(true)}window.scrollTo(0,0);if(name!=='home')$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
-var RENDER_V=4,housesBank=null,galleryError=false;
-async function loadHouses(){
- try{var published=[],next=null,pages=0;
-  do{var url=ENDPOINT+'/gallery'+(next?'?before='+next.before+'&id='+encodeURIComponent(next.id):'');var r=await fetch(url,{cache:'no-store'});if(!r.ok)throw Error();var data=await r.json();if(!Array.isArray(data.houses))throw Error();published=published.concat(data.houses.filter(validHouse));next=data.next;}while(next&&++pages<20);
-  var r=await fetch('houses.json',{cache:'no-cache'});if(!r.ok)throw Error();var old=await r.json();if(!Array.isArray(old))throw Error();var ids=new Set(published.map(function(h){return h.id}));housesBank=published.concat(old.filter(function(h){return validHouse(h)&&!ids.has(h.id)})).slice(0,600);galleryError=false;
- }catch(e){galleryError=true}
- if(currentView==='gallery')paintGallery();
+var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedSig=null;
+function bankSig(){return (housesBank||[]).map(function(h){return h.id||('seed'+h.seed)}).join(',')}
+async function loadHouses(force){
+ if(housesLoading)return housesLoading;
+ if(!force&&housesBank&&!galleryError&&Date.now()-housesAt<60000)return;
+ housesLoading=(async function(){
+  var hadError=galleryError;
+  try{var published=[],next=null,pages=0;
+   do{var url=ENDPOINT+'/gallery'+(next?'?before='+next.before+'&id='+encodeURIComponent(next.id):'');var r=await fetch(url,{cache:'no-store'});if(!r.ok)throw Error();var data=await r.json();if(!Array.isArray(data.houses))throw Error();published=published.concat(data.houses.filter(validHouse));next=data.next;}while(next&&++pages<20);
+   var r=await fetch('houses.json',{cache:'no-cache'});if(!r.ok)throw Error();var old=await r.json();if(!Array.isArray(old))throw Error();var ids=new Set(published.map(function(h){return h.id}));housesBank=published.concat(old.filter(function(h){return validHouse(h)&&!ids.has(h.id)})).slice(0,600);
+   var changed=bankSig()!==housesSig;housesSig=bankSig();housesAt=Date.now();galleryError=false;
+   if((changed||hadError)&&currentView==='gallery')paintGallery();
+  }catch(e){galleryError=true;if(currentView==='gallery')paintGallery()}
+  housesLoading=null;
+ })();
+ return housesLoading;
 }
-loadHouses();
+if(window.requestIdleCallback)requestIdleCallback(function(){loadHouses()});else setTimeout(function(){loadHouses()},2000);
 function validHouse(h){if(!h||h.v!==1||![1,2,3,4,5].includes(h.rv)||!Number.isInteger(h.seed)||h.seed<0||h.seed>4294967295)return false;if(h.base&&(!(h.rv===3||h.rv===4||h.rv===5)||h.base.rv!==2||h.base.base||h.base.seed!==h.seed||!validHouse(h.base)))return false;if(h.rv===4||h.rv===5)return (h.ink==null||(h.rv===5&&validInk(h.ink)))&&Array.isArray(h.layers)&&h.layers.length<=4&&new Set(h.layers.map(function(l){return l.kind})).size===h.layers.length&&h.layers.reduce(function(n,l){return n+(l.pieces||[]).length},0)<=24&&h.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.length&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})});return ['wall','roof','door'].every(function(k){return !h[k]||(valid(h[k])&&h[k].kind===k)})&&Array.isArray(h.windows)&&h.windows.length<=4&&h.windows.every(function(w){return valid(w)&&w.kind==='window'})}
 var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110967, 118886, 134724, 142643, 166400, 174319, 190157, 198076, 205995, 213914, 221833, 229752, 237671, 245590, 261428, 277266, 301023, 308942, 316861, 324780, 364375];
 function rendererFor(rv){return rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:CasasV2}
@@ -57,26 +66,46 @@ function paintCard(grid,item,index,set){
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 function paintGallery(){
-  var vg=$('gallery-grid'),eg=$('examples-grid');vg.replaceChildren();eg.replaceChildren();
-  var visitors=(housesBank||[]).map(function(h){return {design:h,seed:h.seed,rv:h.rv,label:'Casa de visitante hecha con recortes de papel'}});
-  $('gallery-visitors').hidden=!visitors.length;
-  visitors.forEach(function(item,i){paintCard(vg,item,i,visitors)});
-  // Examples are fixed rv2 seeds with an empty shared bank, so they never change when pieces are approved.
-  CasasV2.setCommunity([]);
-  try{EXAMPLE_SET.forEach(function(item,i){paintCard(eg,item,i,EXAMPLE_SET)})}finally{CasasV2.setCommunity(COMMUNITY_LIST)}
+  var sig=bankSig();
+  if(sig!==paintedSig){
+    paintedSig=sig;
+    var vg=$('gallery-grid'),eg=$('examples-grid');vg.replaceChildren();eg.replaceChildren();
+    var visitors=(housesBank||[]).map(function(h){return {design:h,seed:h.seed,rv:h.rv,label:'Casa de visitante hecha con recortes de papel'}});
+    $('gallery-visitors').hidden=!visitors.length;
+    visitors.forEach(function(item,i){paintCard(vg,item,i,visitors)});
+    // Examples are fixed rv2 seeds with an empty shared bank, so they never change when pieces are approved.
+    CasasV2.setCommunity([]);
+    try{EXAMPLE_SET.forEach(function(item,i){paintCard(eg,item,i,EXAMPLE_SET)})}finally{CasasV2.setCommunity(COMMUNITY_LIST)}
+  }
   setText('gallery-empty',galleryError?'Las casas de visitantes no se han podido cargar. Prueba a recargar.':'');
   $('gallery-empty').hidden=!$('gallery-empty').textContent;
 }
-var viewerSet=null,viewerIndex=0,viewerReturnFocus=null;
+var viewerSet=null,viewerIndex=0,viewerReturnFocus=null,viewerCache={},viewerCacheKeys=[];
+function viewerKey(item){return item.example?'e'+item.seed:'v'+(item.design&&item.design.id||item.seed)+'-'+(item.rv||'')}
+function renderViewerItem(item){
+  var key=viewerKey(item),hit=viewerCache[key];
+  if(hit)return hit;
+  var art=document.createElement('div'),r=null;
+  if(item.example)CasasV2.setCommunity([]);
+  try{r=rendererFor(item.rv).render(art,item.design,item.seed)}finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
+  hit={svg:art.firstChild,background:r.background};
+  viewerCache[key]=hit;viewerCacheKeys.push(key);
+  if(viewerCacheKeys.length>12)delete viewerCache[viewerCacheKeys.shift()];
+  return hit;
+}
 function paintViewer(){
-  var item=viewerSet[viewerIndex],d=$('viewer'),r=null;
+  var item=viewerSet[viewerIndex],d=$('viewer'),hit;
   try{
-    if(item.example)CasasV2.setCommunity([]);
-    try{$('viewer-art').replaceChildren();r=rendererFor(item.rv).render($('viewer-art'),item.design,item.seed)}finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
+    hit=renderViewerItem(item);
+    if(hit.svg)$('viewer-art').replaceChildren(hit.svg);
+    d.style.background=hit.background;d.style.setProperty('--onpage',onpage(hit.background));
   }catch(e){if(d.open)d.close();return}
-  d.style.background=r.background;d.style.setProperty('--onpage',onpage(r.background));
   setText('viewer-label',item.label+', '+(viewerIndex+1)+' de '+viewerSet.length);
   setText('viewer-count',(viewerIndex+1)+' / '+viewerSet.length);
+  if(window.requestIdleCallback)requestIdleCallback(function(){
+    if(!viewerSet||viewerSet.length<2)return;
+    try{renderViewerItem(viewerSet[(viewerIndex+1)%viewerSet.length]);renderViewerItem(viewerSet[(viewerIndex-1+viewerSet.length)%viewerSet.length])}catch(e){}
+  });
 }
 function openViewer(set,index,origin){
   if(!set.length)return;viewerSet=set;viewerIndex=index;viewerReturnFocus=origin||null;
@@ -101,7 +130,7 @@ function paintSwatches(){var p=selectedPiece(),c=p?p.color:draft.color;document.
 function sync(){paintSlots();paperName();paintSwatches();controls();paint()}
 function el(name,attrs){var n=document.createElementNS(SVGNS,name);for(var k in attrs)n.setAttribute(k,attrs[k]);return n}
 function ptsToD(pts,close){return 'M'+pts.map(function(p){return p.join(' ')}).join('L')+(close?'Z':'')}
-function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(CasasV5.strokeNode(inkLive));return}var p=selectedPiece();if(p&&selected!=='base'){g.appendChild(el('path',{d:ptsToD(p.outline,true),'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:ptsToD(p.outline,true),fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3)g.appendChild(el('path',{d:ptsToD(live,true),fill:draft.color,opacity:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));g.appendChild(el('path',{d:ptsToD(live),'class':'pending'}))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
+function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(CasasV5.strokeNode(inkLive,true));return}var p=selectedPiece();if(p&&selected!=='base'){g.appendChild(el('path',{d:ptsToD(p.outline,true),'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:ptsToD(p.outline,true),fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3)g.appendChild(el('path',{d:ptsToD(live,true),fill:draft.color,opacity:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));g.appendChild(el('path',{d:ptsToD(live),'class':'pending'}))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
 function point(e){var b=$('drawing').getBoundingClientRect();return [Math.max(0,Math.min(100,Math.round((e.clientX-b.left)/b.width*1000)/10)),Math.max(0,Math.min(100,Math.round((e.clientY-b.top)/b.height*1000)/10))]}
 function perp(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return Math.hypot(p[0]-a[0],p[1]-a[1]);return Math.abs(dy*p[0]-dx*p[1]+b[0]*a[1]-b[1]*a[0])/L}
 function simplify(pts,eps){
@@ -130,7 +159,7 @@ document.querySelectorAll('.kind-x').forEach(function(b){b.onclick=function(){va
 $('undo').onclick=function(){if(mode==='cut'&&pending.length)pending.pop();else if(undoStack.length){restore(undoStack.pop());if(mode==='cut')resetCanvas()}changed()};
 $('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){checkpoint();ink=[];layers=[];base=null;tints={};omit=[];selected=null;resetCanvas();$('clear-dialog').close();changed();setText('draft-note','Lienzo vacío. Puedes deshacer.')};
 $('submit-house').onclick=async function(){if(houseBusy||!designCount())return;houseBusy=true;controls();setText('house-status','Enviando tu casa…');var snapshot=houseSnapshot(),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
- try{var r=await fetch(ENDPOINT+'/publish-house',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({house:JSON.parse(snapshot),action:'publish',website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id||result.status!=='published')throw new Error(result.error||'unavailable');submittedHouses[snapshot]=true;housesBank=[Object.assign(JSON.parse(snapshot),{id:result.id})].concat((housesBank||[]).filter(function(h){return h.id!==result.id}));show('gallery');setText('house-status','Casa publicada.');}
+ try{var r=await fetch(ENDPOINT+'/publish-house',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({house:JSON.parse(snapshot),action:'publish',website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id||result.status!=='published')throw new Error(result.error||'unavailable');submittedHouses[snapshot]=true;housesBank=[Object.assign(JSON.parse(snapshot),{id:result.id})].concat((housesBank||[]).filter(function(h){return h.id!==result.id}));housesAt=Date.now();show('gallery');setText('house-status','Casa publicada.');}
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu casa sigue aquí; prueba otro día.':'No hemos podido confirmar el envío. Tu casa sigue aquí. Puedes reintentarlo.';setText('house-status',text)}finally{clearTimeout(timer);houseBusy=false;controls();}};
 var toolBtns={cut:$('tool-cut'),pencil:$('tool-pencil'),wax:$('tool-wax'),eraser:$('tool-eraser')};
 var CUT_DESC=$('draw-desc').textContent,CUT_TITLE=$('draw-title').textContent;

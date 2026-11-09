@@ -9,8 +9,9 @@
   function pathD(p){var d='M'+p[0].join(' ');for(var i=1;i<p.length-1;i++)d+='Q'+p[i].join(' ')+' '+((p[i][0]+p[i+1][0])/2)+' '+((p[i][1]+p[i+1][1])/2);return d+'L'+p[p.length-1].join(' ')}
   var filters=0;
   // Wax: broad stroke whose edge and body are broken up by fixed-seed noise, like pigment on paper tooth.
-  function strokeNode(s){var g=el('g',{'class':'ink'}),d=pathD(s.pts);
+  function strokeNode(s,live){var g=el('g',{'class':'ink'}),d=pathD(s.pts);
     if(s.k==='p'){g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.45,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.88}));return g}
+    if(live){g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':2.6,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.92}));return g}
     var xs=s.pts.map(function(p){return p[0]}),ys=s.pts.map(function(p){return p[1]}),x0=Math.min.apply(null,xs)-4,y0=Math.min.apply(null,ys)-4,id='ink-wax-'+(++filters);
     var f=el('filter',{id:id,filterUnits:'userSpaceOnUse',x:x0,y:y0,width:Math.max.apply(null,xs)-x0+4,height:Math.max.apply(null,ys)-y0+4,'color-interpolation-filters':'sRGB'});
     f.appendChild(el('feTurbulence',{type:'fractalNoise',baseFrequency:'0.9 1.3',numOctaves:3,seed:7,result:'n'}));
