@@ -30,11 +30,61 @@ function saveDesign(){try{localStorage.setItem(DESIGN5_KEY,JSON.stringify({rv:5,
 function checkpoint(){undoStack.push(cp({ink:ink,layers:layers,base:base,tints:tints,omit:omit,selected:selected,kind:draft.kind,color:draft.color}))}
 function restore(s){ink=s.ink||[];layers=s.layers;base=s.base;tints=s.tints;omit=s.omit;selected=s.selected;draft.kind=s.kind;draft.color=s.color}
 function onpage(bg){var n=parseInt(bg.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;return (.2126*r+.7152*g+.0722*b)/255>.45?'#252525':'#f7f7f7'}
-function fresh(){homeSeed=(Math.random()*4294967296)>>>0;if(previewSeed===null)previewSeed=homeSeed;var r=CasasV2.render($('card'),null,homeSeed);homeBackground=r.background;document.body.style.background=r.background;document.body.style.setProperty('--onpage',onpage(r.background));setText('home-status',r.shared?'Esta casa incluye una pieza compartida.':'')}
-fresh();$('again').onclick=fresh;
+// Portada: el SVG de cada casa (sombras + grano de papel) es lo caro de rasterizar, sobre todo en iPhone.
+// Las próximas casas se componen y rasterizan por adelantado en segundo plano (misma técnica que el visor);
+// pulsar ↻ solo cambia un bitmap ya listo. Si la cola está vacía, se renderiza como antes y se repone.
+var homeQueue=[],homePrepRun=0,HOME_AHEAD=2,homeResizeTimer=0,homePrepBusy=false,homeWaiting=false,paperFailed=false;
+function homePx(){var w=$('card').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
+function applyHome(seed,background,shared){
+ homeSeed=seed;if(previewSeed===null)previewSeed=homeSeed;
+ homeBackground=background;document.body.style.background=background;document.body.style.setProperty('--onpage',onpage(background));
+ setText('home-status',shared?'Esta casa incluye una pieza compartida.':'');
+}
+function serveHome(){
+ if(!homeWaiting||currentView!=='home')return;
+ var px=homePx(),h=null;
+ while(homeQueue.length){var q=homeQueue.shift();if(q.px===px){h=q;break}}
+ if(h){homeWaiting=false;$('card').replaceChildren(h.cv);applyHome(h.seed,h.background,h.shared)}
+}
+function fresh(){
+ // Pulsar nunca renderiza en cadena: con la cola vacía la casa llega en cuanto termina
+ // la rasterización en segundo plano (las pulsaciones seguidas se juntan en una), y el
+ // botón y la página siguen respondiendo. Solo sin textura disponible se renderiza directo.
+ if(homeWaiting)return;
+ if(!homeQueue.length&&paperFailed){var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);return}
+ homeWaiting=true;serveHome();prepHome();
+}
+function prepHome(){
+ if(homePrepBusy||currentView!=='home'||!viewerPaperURI)return;
+ var run=homePrepRun,px=homePx();if(!px||homeQueue.length>=HOME_AHEAD&&!homeWaiting)return;
+ homePrepBusy=true;
+ schedule(function(){
+  if(run!==homePrepRun||currentView!=='home'){homePrepBusy=false;return}
+  var seed=(Math.random()*4294967296)>>>0,tmp=document.createElement('div'),r;
+  viewerHost().appendChild(tmp);
+  try{r=CasasV2.render(tmp,null,seed)}catch(e){homePrepBusy=false;if(tmp.parentNode)tmp.parentNode.removeChild(tmp);return}
+  var svg=tmp.firstChild;
+  if(tmp.remove)tmp.remove();else if(tmp.parentNode)tmp.parentNode.removeChild(tmp);
+  if(!svg){homePrepBusy=false;return}
+  makeBitmap('home-'+seed,svg,px).then(function(cv){
+   homePrepBusy=false;
+   if(!cv||run!==homePrepRun)return;
+   homeQueue.push({seed:seed,cv:cv,px:px,background:r.background,shared:r.shared});
+   serveHome();
+   prepHome();
+  });
+ });
+}
+window.addEventListener('resize',function(){clearTimeout(homeResizeTimer);homeResizeTimer=setTimeout(function(){homePrepRun++;prepHome()},300)});
+document.addEventListener('visibilitychange',function(){if(document.hidden)homePrepRun++;else prepHome()});
+// Primera casa al cargar: render directo para que la portada salga pintada; a partir de ahí, bitmaps.
+var firstSeed=(Math.random()*4294967296)>>>0,firstRender=CasasV2.render($('card'),null,firstSeed);
+applyHome(firstSeed,firstRender.background,firstRender.shared);
+$('again').onclick=fresh;
+loadViewerPaper();
 fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))COMMUNITY_LIST=list.filter(valid).slice(0,600);if(typeof Casas!=='undefined')Casas.setCommunity(COMMUNITY_LIST);CasasV2.setCommunity(COMMUNITY_LIST)}).catch(function(){});
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
-function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();preview();saveDesign()}if(name==='gallery'){paintGallery();loadHouses(true)}window.scrollTo(0,0);if(name!=='home')$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}
+function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();preview();saveDesign()}if(name==='gallery'){paintGallery();loadHouses(true)}window.scrollTo(0,0);if(name!=='home'){homePrepRun++;$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}else{serveHome();prepHome()}}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
 var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedGallery=null,renderQueue=[],renderScheduled=false;
 function queueRender(fn){renderQueue.push(fn);if(renderScheduled)return;renderScheduled=true;
@@ -118,7 +168,7 @@ var viewerBitmaps={},viewerBitmapKeys=[],viewerPaperURI=null,viewerPaperTried=fa
 function schedule(fn){if(window.requestIdleCallback)requestIdleCallback(fn,{timeout:400});else setTimeout(fn,80)}
 function loadViewerPaper(){
   if(viewerPaperTried)return;viewerPaperTried=true;
-  try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet)prefetchViewer()};fr.readAsDataURL(b)}).catch(function(){})}catch(e){}
+  try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet)prefetchViewer();prepHome()};fr.onerror=function(){paperFailed=true};fr.readAsDataURL(b)}).catch(function(){paperFailed=true})}catch(e){paperFailed=true}
 }
 function viewerPx(){var w=$('viewer-art').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function makeBitmap(key,svg,px){
