@@ -4,11 +4,13 @@ Generador de collages de casas (antes «Casas de papel»). Sitio estático en Gi
 
 ## Experiencia
 
-- Otra casa (icono ↻) genera una composición nueva en el dispositivo.
-- Crea tu casa abre un taller separado; la casa anterior se conserva. El contorno que dibuja la visitante ES la pieza: se recorta con su forma, sus proporciones y su color de papel, y el generador la usa como ingrediente real en lugar de una pieza suya. La pared define el cuerpo y la silueta manda en tejado, puerta y ventanas; la puerta pivota en la base; el tejado se apoya sobre el cuerpo conservando su proporción. Cuatro elementos: pared, puerta, ventana y tejado. Contorno a mano alzada o punto a punto (con cierre tocando el primer punto), también con teclado, deshacer y borrador local.
-- Cada pieza terminada se añade a su casa: pared, tejado y puerta tienen un hueco (una pieza nueva sustituye a la anterior) y las ventanas se acumulan hasta cuatro. Al cambiar de elemento el lienzo empieza de cero y las piezas ya añadidas se conservan. La vista previa compone la casa con esas piezas e improvisa lo que falte; la casa del diseño también se puede descargar. Piezas y borrador se guardan solo en el navegador.
-- El botón Proponer pieza envía una propuesta privada: la pieza del lienzo o, si el lienzo está vacío, la última añadida, sin sacarla del diseño. Solo tras revisión visual y publicación entra en `community.json`, banco estático común a visitantes. No se incluyen propuestas pendientes.
-- El banco comienza vacío. Las piezas del motor son originales, no se presentan como aportaciones de visitantes.
+- Una sola navegación en todas las secciones: la marca arriba (vuelve a la casa de inicio) y Galería / Crea tu casa en una barra inferior en móvil, arriba a la derecha en escritorio. Sin «Volver» y con el mismo fondo en todas.
+- Otra casa (icono ↻) genera una composición nueva en el dispositivo. Esa misma casa (misma semilla rv2) es la que se edita en Crea tu casa.
+- Crea tu casa es un único lienzo: se dibuja el contorno directamente sobre la casa, que se recompone en cuanto se cierra el recorte. El contorno ES la pieza (forma, proporciones y papel propios, sin transformaciones que lo mutilen). Pared, puerta, ventana y tejado; la pieza cerrada sigue seleccionada: se puede cambiar su papel (con deshacer) o dibujar otra encima para sustituirla; las ventanas se acumulan hasta cuatro.
+- Contorno a mano alzada o punto a punto (cierre tocando el primer punto), también con teclado, deshacer y borrador local. Las guardas anteriores se conservan (pared casi plana no sustituye a una buena, gestos cancelados no añaden nada).
+- Galería: 30 casas de ejemplo (semillas fijas del motor rv2 con banco compartido vacío, así no cambian) en su propia sección «Casas de ejemplo». Las casas de visitantes aprobadas (`houses.json`) irían en otra sección distinta; hoy no hay ninguna. Los ejemplos no son aportaciones de visitantes.
+- Proponer pieza / Proponer tu casa envían una propuesta privada por gesto de la visitante. Solo tras revisión visual y publicación entra en `community.json` o `houses.json`. No se incluyen propuestas pendientes.
+- El banco comunitario de piezas comienza vacío. Las piezas del motor son originales, no se presentan como aportaciones de visitantes.
 
 ## Backend
 

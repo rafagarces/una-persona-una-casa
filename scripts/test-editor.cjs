@@ -1,13 +1,13 @@
 // Regression harness for state changes, without network writes.
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
-class Node{constructor(id=''){this.id=id;this.hidden=false;this.disabled=false;this.attrs={};this.textContent='';this.style={setProperty(){}};this.children=[]}setAttribute(k,v){this.attrs[k]=v}getAttribute(k){return this.attrs[k]}appendChild(n){this.children.push(n)}replaceChildren(){this.children=[]}getBoundingClientRect(){return {left:0,top:0,width:100,height:100}}setPointerCapture(){}focus(){}querySelector(){return null}showModal(){this.open=true}close(){this.open=false}}
+class Node{constructor(id=''){this.id=id;this.hidden=false;this.disabled=false;this.attrs={};this.textContent='';this.style={setProperty(){}};this.children=[]}setAttribute(k,v){this.attrs[k]=v}removeAttribute(k){delete this.attrs[k]}getAttribute(k){return this.attrs[k]}appendChild(n){this.children.push(n)}replaceChildren(){this.children=[]}getBoundingClientRect(){return {left:0,top:0,width:100,height:100}}setPointerCapture(){}focus(){}querySelector(){return null}showModal(){this.open=true}close(){this.open=false}}
 function setup(saved){
  const nodes={},get=id=>nodes[id]||(nodes[id]=new Node(id));
  const kinds=['wall','door','window','roof'].map(k=>{const b=new Node();b.attrs['data-kind']=k;return b}),clears=kinds.map(b=>{const x=new Node();x.attrs['data-clear']=b.attrs['data-kind'];return x});
  const storage={...saved};
  const doc={body:new Node(),activeElement:null,getElementById:get,createElement:()=>new Node(),createElementNS:()=>new Node(),querySelectorAll:s=>s.includes('.kind-x')?clears:s.includes('#kinds')?kinds:[],querySelector:s=>s.includes('data-clear=')?clears.find(x=>s.includes(x.attrs['data-clear'])):null};
  get('workshop').hidden=true;
- const context={document:doc,localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v},Casas:{render:()=>({background:'#eeeeee'})},CasasV1:{render:()=>({background:'#eeeeee'})},CasasV2:{render:()=>({background:'#eeeeee'})},fetch:()=>Promise.resolve({ok:true,json:()=>Promise.resolve([])}),setTimeout:()=>1,clearTimeout(){},scrollY:0,URL,Blob,AbortController};
+ const context={document:doc,localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v},Casas:{render:()=>({background:'#eeeeee'}),setCommunity(){}},CasasV1:{render:()=>({background:'#eeeeee'})},CasasV2:{render:()=>({background:'#eeeeee'}),setCommunity(){}},fetch:()=>Promise.resolve({ok:true,json:()=>Promise.resolve([])}),setTimeout:()=>1,clearTimeout(){},scrollY:0,URL,Blob,AbortController};
  context.window={scrollTo(){},addEventListener(){}};vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/../app.js','utf8'),context);get('open-workshop').onclick();
  return {get,kinds,clears,storage,design:()=>JSON.parse(storage['casas-design-v1']).design,draw(){for(const p of [[10,10],[90,10],[90,90],[10,90],[10,10]]){get('drawing').onpointerdown({button:0,clientX:p[0],clientY:p[1],pointerId:1,preventDefault(){}});get('drawing').onpointerup()}}};
 }
@@ -49,3 +49,19 @@ for(const p of [[9.9,45],[90.1,45],[50.1,50]]){h.get('drawing').onpointerdown(ev
 h.get('close-outline').onclick();assert.deepEqual(h.design().wall,goodWall);assert.match(h.get('draft-note').textContent,/forma suficiente/);
 h.get('undo').onclick();assert.deepEqual(h.design().wall,goodWall);
 console.log('PASS: near-flat wall rejected without replacing valid wall');
+
+// Single canvas: a closed piece stays selected and editable (recolor + undo); one nav, no "Volver".
+h=setup();h.kinds[0].onclick();h.draw();
+const w0=h.design().wall,sw=h.get('papers').children;
+assert.ok(w0);assert.equal(h.get('submit-piece').disabled,false);
+sw[1].onclick();assert.equal(h.design().wall.color,'#dfa3a5');assert.deepEqual(h.design().wall.outline,w0.outline);
+assert.equal(h.get('paper-name').textContent,'Rosa');
+h.get('undo').onclick();assert.equal(h.design().wall.color,w0.color);
+h.kinds[2].onclick();h.draw();sw[2].onclick();assert.equal(h.design().windows[0].color,'#b04a41');assert.equal(h.design().wall.color,w0.color);
+console.log('PASS: selected piece recolor keeps outline, undo restores, other pieces untouched');
+assert.equal(h.get('home').hidden,true);assert.equal(h.get('workshop').hidden,false);assert.equal(h.get('open-workshop').attrs['aria-current'],'page');
+h.get('open-gallery').onclick();assert.equal(h.get('workshop').hidden,true);assert.equal(h.get('gallery').hidden,false);assert.equal(h.get('open-gallery').attrs['aria-current'],'page');assert.equal(h.get('open-workshop').attrs['aria-current'],undefined);
+assert.equal(h.get('examples-grid').children.length,30);assert.equal(h.get('gallery-visitors').hidden,true);
+h.get('brand').onclick();assert.equal(h.get('home').hidden,false);assert.equal(h.get('gallery').hidden,true);
+h.get('open-workshop').onclick();assert.deepEqual(h.design().wall.outline,w0.outline);
+console.log('PASS: shared navigation, 30 examples apart from visitor houses, design survives section changes');
