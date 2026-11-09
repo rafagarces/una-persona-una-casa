@@ -5,7 +5,7 @@ CF_TOKEN_FILE=/secure/path python scripts/review.py reject UUID SHA256
 python scripts/review.py withdraw UUID
 Review actual pixels before approval. Only geometric JSON is ever imported.
 """
-import sys,json,pathlib,re,html,hashlib,time
+import math,sys,json,pathlib,re,html,hashlib,time
 from cloudflare import query
 root=pathlib.Path(__file__).parents[1]
 PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a']
@@ -17,7 +17,7 @@ def clean(x):
   out=[]
   for p in a:
    assert isinstance(p,list) and len(p)==2 and all(type(n) in [int,float] and 0<=n<=100 for n in p)
-   out.append([round(n,1) for n in p])
+   out.append([math.floor(n*10+.5)/10 for n in p])
   return out
  outline=pts(x['outline'],3,160)
  # Same degenerate-contour guard as worker and editor: closed ring with real area.
@@ -46,7 +46,7 @@ def cleanInk(a):
   q=[]
   for pt in p:
    assert isinstance(pt,list) and len(pt)==2 and all(type(n) in [int,float] and 0<=n<=100 for n in pt)
-   q.append([round(n,1) for n in pt])
+   q.append([math.floor(n*10+.5)/10 for n in pt])
   out.append({'k':st['k'],'c':st['c'],'pts':q})
  return out
 def cleanHouse(x):
