@@ -77,3 +77,4 @@ button,.tabs button,.tool,.slot{font-weight:500}
  .tabs{gap:10px}
  .tabs button{padding-left:20px;padding-right:20px}
 }
+@media(max-width:350px){.tools.actions button{padding-left:4px;padding-right:4px;font-size:12px}.tools{gap:4px}}
