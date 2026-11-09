@@ -34,16 +34,9 @@
 <h2 id="preview-title" tabindex="-1">Así queda tu casa</h2><p class="preview-caption muted">Las piezas que añades se quedan aquí; lo que falte se improvisa.</p>
 <div id="design-slots" class="slots" aria-label="Piezas de tu casa"></div>
 <div class="preview-bg" id="preview-bg"><div id="preview" class="art" role="img" aria-label="Tu casa compuesta con las piezas que has añadido"></div></div>
-<div class="secondary-row"><button id="save-design" type="button" disabled>Descargar tu casa</button><button id="save-piece" type="button" disabled>Descargar pieza</button></div>
+<div class="secondary-row"><button id="save-design" type="button" disabled>Descargar tu casa</button></div>
 <p class="send-status" id="preview-status" role="status" aria-live="polite"></p>
-<div class="send-box"><h2>Hazla parte de otras casas</h2><p class="intro">Propón una pieza de tu casa y podrá aparecer, recortada tal cual, en collages de otras personas.</p>
-<div class="field"><label for="propose-which">Pieza que propones</label><select id="propose-which"></select></div>
-<label class="consent"><input type="checkbox" id="consent"><span>Es una pieza mía y permito que cualquiera la reutilice y la mezcle en estos collages, sin atribución.</span></label>
-<label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label>
-<button class="primary" id="submit-piece" type="button" disabled>Proponer pieza</button>
-<p class="send-status" id="send-status" role="status" aria-live="polite"></p>
-<details class="keyboard-tools"><summary>Qué pasa al proponerla</summary><p class="muted">Se revisa antes de publicarse. No aparece al enviarla y no hay un plazo de publicación. Evita letras, datos personales y símbolos ofensivos.</p><p class="privacy">Solo se envían la forma, el color y las marcas de tu pieza. No pedimos nombre, correo ni cuenta. El borrador permanece en tu navegador. Las propuestas se guardan en privado para revisión y se eliminan al descartarlas o en las revisiones periódicas, tras 30 días sin revisar. Las piezas aceptadas pasan a un banco público sin datos de autor. Cloudflare procesa la conexión para recibir el envío.</p></details>
-</div></aside></div>
+<div class="send-box"><label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label><button class="primary" id="submit-piece" type="button" disabled>Proponer pieza</button><p class="send-status" id="send-status" role="status" aria-live="polite"></p></div></aside></div>
 </section>
 <dialog id="clear-dialog"><h2>¿Borrar tu pieza?</h2><p>Se borrarán el contorno y los detalles de este borrador.</p><div class="actions"><button id="cancel-clear" type="button">Cancelar</button><button id="confirm-clear" class="primary" type="button">Borrar pieza</button></div></dialog>
 </main>

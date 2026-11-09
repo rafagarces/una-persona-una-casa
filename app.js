@@ -50,35 +50,14 @@ function designActive(){
   return (d.wall||d.door||d.roof||d.windows.length)?d:null;
 }
 function syncKinds(){document.querySelectorAll('#kinds .tool').forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-kind')===draft.kind))})}
-function proposeOptions(){
-  var list=[];
-  if(ready())list.push({id:'canvas',label:'La que estás recortando ('+KIND_NAME[draft.kind]+')',piece:draft});
-  ['wall','roof','door'].forEach(function(k){if(design[k])list.push({id:k,label:KIND_NAME[k]+' de tu casa',piece:design[k]})});
-  design.windows.forEach(function(p,i){list.push({id:'window'+i,label:'Ventana '+(i+1)+' de tu casa',piece:p})});
-  return list;
-}
-var proposeSel=null,proposeSig='';
-function paintPropose(){
-  var list=proposeOptions(),sel=$('propose-which');
-  var sig=list.map(function(o){return o.id}).join('|');
-  if(sig!==proposeSig){
-    proposeSig=sig;sel.replaceChildren();
-    if(!list.length){var ph=document.createElement('option');ph.value='';ph.textContent='Primero recorta o añade una pieza';sel.appendChild(ph)}
-    list.forEach(function(o){var opt=document.createElement('option');opt.value=o.id;opt.textContent=o.label;sel.appendChild(opt)});
-    if(!list.some(function(o){return o.id===proposeSel}))proposeSel=list.length?list[0].id:null;
-  }
-  if(proposeSel)sel.value=proposeSel;
-  sel.disabled=!list.length;
-}
-function proposePiece(){var list=proposeOptions();for(var i=0;i<list.length;i++)if(list[i].id===proposeSel)return list[i].piece;return null}
+var lastAdded=null;
+function proposeTarget(){return ready()?draft:lastAdded}
 function controls(){
   var has=pending.length>0||draft.marks.length>0||ready();
   $('undo').disabled=!has;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
   $('add-to-design').disabled=!ready();$('save-design').disabled=!designCount();
-  $('save-piece').disabled=!ready();
-  paintPropose();
-  var pp=proposePiece();
-  $('submit-piece').disabled=!pp||!$('consent').checked||submitBusy||!!submittedMap[JSON.stringify(pp)];
+  var pt=proposeTarget();
+  $('submit-piece').disabled=!pt||submitBusy||!!submittedMap[JSON.stringify(pt)];
   helpText();
 }
 function changed(){setText('send-status','');controls();clearTimeout(saveTimer);saveTimer=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(draft));setText('draft-note','Tu borrador se guarda solo en este navegador.')}catch(e){setText('draft-note','Este navegador no deja guardar el borrador. Descarga tu pieza antes de salir.')}},150);clearTimeout(previewTimer);previewTimer=setTimeout(preview,220);}
@@ -164,6 +143,7 @@ $('add-to-design').onclick=function(){
   var piece={v:2,kind:draft.kind,color:draft.color,material:draft.material,outline:draft.outline,marks:draft.marks},note;
   if(piece.kind==='window'){design.windows.push(piece);note='Ventana añadida a tu casa.';if(design.windows.length>4){design.windows.shift();note='Tu casa ya tenía 4 ventanas: se ha sustituido la más antigua.'}}
   else{note=KIND_NAME[piece.kind]+(design[piece.kind]?' sustituida en tu casa.':' añadida a tu casa.');design[piece.kind]=piece}
+  lastAdded=piece;
   resetCanvas();paint();paintSlots();saveDesign();changed();setText('draft-note',note+' Dibuja otra parte cuando quieras.');
 };
 $('undo').onclick=function(){
@@ -174,13 +154,10 @@ $('undo').onclick=function(){
 };
 $('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){resetCanvas();paint();changed();$('clear-dialog').close()};
 $('show-preview').onclick=function(){preview();$('preview-title').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});$('preview-title').focus({preventScroll:true})};
-$('propose-which').onchange=function(){proposeSel=this.value;controls();var pp=proposePiece();if(pp&&submittedMap[JSON.stringify(pp)])setText('send-status','Esa pieza ya se envió para revisión. Puedes proponer otra.')};
-$('consent').onchange=controls;
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},60000)}
 async function svgPNG(svg,name,status,bgc){var copy=svg.cloneNode(true);var fill=bgc||(svg.closest('#card')?homeBackground:null);if(fill){var bg=document.createElementNS(SVGNS,'rect');bg.setAttribute('width','100');bg.setAttribute('height','100');bg.setAttribute('fill',fill);copy.insertBefore(bg,copy.firstChild)}var markup=new XMLSerializer().serializeToString(copy),blob=new Blob([markup],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);try{var img=new Image();await new Promise(function(resolve,reject){img.onload=resolve;img.onerror=reject;img.src=url});var canvas=document.createElement('canvas');canvas.width=canvas.height=1800;canvas.getContext('2d').drawImage(img,0,0,1800,1800);var png=await new Promise(function(resolve){canvas.toBlob(resolve,'image/png')});if(!png)throw Error();downloadBlob(png,name+'.png');setText(status,'Imagen preparada. Si no se descarga, prueba mantener pulsada la imagen o usa otro navegador.')}catch(e){downloadBlob(blob,name+'.svg');setText(status,'Este navegador no pudo crear el PNG. Se ha preparado el collage en SVG.')}finally{URL.revokeObjectURL(url)}}
-$('save-piece').onclick=function(){var holder=document.createElement('div');holder.innerHTML=Casas.pieceSVG(draft);svgPNG(holder.firstChild,'pieza-de-papel','preview-status')};
 $('save-design').onclick=function(){var svg=$('preview').querySelector('svg');if(svg)svgPNG(svg,'mi-casa-de-papel','preview-status',previewBackground)};
-$('submit-piece').onclick=async function(){var piece=proposePiece();if(submitBusy||!$('consent').checked||!piece)return;submitBusy=true;controls();setText('send-status','Enviando tu pieza…');var snapshot=JSON.stringify(piece),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
+$('submit-piece').onclick=async function(){var piece=proposeTarget();if(submitBusy||!piece)return;submitBusy=true;controls();setText('send-status','Enviando tu pieza…');var snapshot=JSON.stringify(piece),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
  try{var r=await fetch(ENDPOINT+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({piece:JSON.parse(snapshot),consent:true,website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id)throw new Error(result.error||'unavailable');submittedMap[snapshot]=true;setText('send-status','Pieza recibida para revisión. Todavía no está publicada. Referencia '+result.id.slice(0,8)+'. La pieza sigue en tu casa.');try{localStorage.setItem('casas-last-submission',JSON.stringify({id:result.id,time:Date.now()}))}catch(e){}}
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu pieza sigue aquí; descárgala o prueba otro día.':'No hemos podido confirmar el envío. Tu pieza sigue aquí. Puedes reintentarlo: no se duplicará la misma pieza.';setText('send-status',text)}finally{clearTimeout(timer);submitBusy=false;controls();}};
 window.addEventListener('pagehide',function(){try{localStorage.setItem(KEY,JSON.stringify(draft));saveDesign()}catch(e){}});
