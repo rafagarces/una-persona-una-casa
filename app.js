@@ -3,14 +3,15 @@
 var $=function(id){return document.getElementById(id)},SVGNS='http://www.w3.org/2000/svg';
 var PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a'],PAPER_NAMES=['Crema','Rosa','Rojo','Azul','Verde','Ocre','Gris','Noche'];
 var INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34'],INK_NAMES=['Grafito','Tierra','Azul','Rojo','Verde','Ocre'];
+var KINDS=['wall','door','window','roof'];
 var ENDPOINT='https://casas-de-papel-pieces.rafagarces87-store.workers.dev';
 var draft={v:2,kind:'window',color:PAPERS[3],material:'pencil',outline:null,marks:[]};
-var tool='cut',ink=INKS[0],width=2,drawing=null,pending=[],cursor=[50,50],previewSeed=1049771,saveTimer,previewTimer,submitBusy=false,submittedHash='',previousFocus,homeScroll=0;
+var tool='cut',ink=INKS[0],width=2,drawing=null,pending=[],cursor=[50,50],kbUsed=false,previewSeed=1049771,saveTimer,previewTimer,submitBusy=false,submittedHash='',previousFocus,homeScroll=0;
 var KEY='casas-piece-v2';
 try{var saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved&&valid(saved))draft=saved}catch(e){}
 try{if(localStorage.getItem('casas-piece-v1'))$('legacy-note').hidden=false}catch(e){}
 function validPts(a,min,max){return Array.isArray(a)&&a.length>=min&&a.length<=max&&a.every(function(p){return Array.isArray(p)&&p.length===2&&p.every(function(n){return Number.isFinite(n)&&n>=0&&n<=100})})}
-function valid(p){return p&&p.v===2&&['wall','door','window'].includes(p.kind)&&PAPERS.includes(p.color)&&['pencil','wax'].includes(p.material)&&(p.outline===null||validPts(p.outline,3,160))&&Array.isArray(p.marks)&&p.marks.length<=12&&p.marks.reduce(function(n,s){return n+s.points.length},0)<=400&&p.marks.every(function(s){return INKS.includes(s.color)&&[1,2,3].includes(s.width)&&validPts(s.points,1,60)})}
+function valid(p){return p&&p.v===2&&KINDS.includes(p.kind)&&PAPERS.includes(p.color)&&['pencil','wax'].includes(p.material)&&(p.outline===null||validPts(p.outline,3,160))&&Array.isArray(p.marks)&&p.marks.length<=12&&p.marks.reduce(function(n,s){return n+s.points.length},0)<=400&&p.marks.every(function(s){return INKS.includes(s.color)&&[1,2,3].includes(s.width)&&validPts(s.points,1,60)})}
 function setText(id,text){$(id).textContent=text}
 function ready(){return !!(draft.outline&&draft.outline.length>=3)}
 function fresh(){var r=Casas.render($('card'));document.body.style.background=r.background;setText('home-status',r.shared?'Esta casa incluye una pieza compartida.':'')}
@@ -20,16 +21,26 @@ fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error
 $('open-workshop').onclick=function(){previousFocus=document.activeElement;homeScroll=scrollY;$('home').hidden=true;$('workshop').hidden=false;document.body.style.background='#f7f7f7';sync();preview();window.scrollTo(0,0);$('work-title').focus();};
 $('back').onclick=function(){endStroke();$('workshop').hidden=true;$('home').hidden=false;document.body.style.background=homeBackground;window.scrollTo(0,homeScroll);(previousFocus||$('open-workshop')).focus();};
 var homeBackground=document.body.style.background;var originalFresh=fresh;$('again').onclick=function(){originalFresh();homeBackground=document.body.style.background};
-function sync(){$('piece-kind').value=draft.kind;$('material').value=draft.material;paint();controls();paperName()}
+var HELP_DRAW='Arrastra libre o toca punto a punto. La guía orienta, no es un molde: tu pieza conserva su forma. No hace falta recortar perfecto.';
+var HELP_CLOSE='Toca el primer punto otra vez para cerrar el recorte, o pulsa Cerrar recorte.';
+var HELP_MARK='Estás añadiendo detalle dentro de la pieza. Cierra el bloque de detalle para volver al contorno.';
+function helpText(){
+  var t=tool==='mark'?HELP_MARK:(pending.length>=3?HELP_CLOSE:HELP_DRAW);
+  setText('work-help',t);
+}
+function sync(){syncKinds();$('material').value=draft.material;paint();controls();paperName()}
+function syncKinds(){document.querySelectorAll('#kinds .tool').forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-kind')===draft.kind))})}
 function controls(){
   var has=pending.length>0||draft.marks.length>0||ready();
   $('undo').disabled=!has;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
   $('save-piece').disabled=!ready();
   $('submit-piece').disabled=!ready()||!$('consent').checked||submitBusy||JSON.stringify(draft)===submittedHash;
+  helpText();
 }
 function changed(){submittedHash='';setText('send-status','');controls();clearTimeout(saveTimer);saveTimer=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(draft));setText('draft-note','Tu borrador se guarda solo en este navegador.')}catch(e){setText('draft-note','Este navegador no deja guardar el borrador. Descarga tu pieza antes de salir.')}},150);clearTimeout(previewTimer);previewTimer=setTimeout(preview,220);}
 function el(name,attrs){var n=document.createElementNS(SVGNS,name);for(var k in attrs)n.setAttribute(k,attrs[k]);return n}
 function ptsToD(pts,close){return 'M'+pts.map(function(p){return p.join(' ')}).join('L')+(close?'Z':'')}
+var GUIDES={door:'M26 92V40A24 24 0 0 1 74 40V92Z',wall:'M12 12H88V88H12Z',window:'M22 22H78V78H22Z',roof:'M14 76 L36 34 H64 L86 76 Z'};
 function paint(){
   var group=$('strokes');group.replaceChildren();
   if(ready())group.appendChild(el('path',{d:ptsToD(draft.outline,true),fill:draft.color,opacity:.92}));
@@ -37,10 +48,15 @@ function paint(){
     group.appendChild(el('path',{d:s.points.length===1?'M'+s.points[0].join(' ')+'l.02 .02':ptsToD(s.points),fill:'none',stroke:s.color,'stroke-width':s.width*(draft.material==='wax'?1.25:.6),'stroke-linecap':'round','stroke-linejoin':'round',opacity:draft.material==='wax'?'.88':'.8'}));
   });
   if(pending.length)group.appendChild(el('path',{d:ptsToD(pending),'class':'pending'}));
-  pending.forEach(function(p){group.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.9}))});
+  if(pending.length>=3)group.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));
+  pending.forEach(function(p,i){
+    group.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.9}));
+    if(i===0&&pending.length>=3)group.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}));
+  });
   if(drawing)group.appendChild(el('path',{d:ptsToD(drawing.pts),'class':'outline-live'}));
-  if(tool==='cut'&&!drawing)group.appendChild(el('path',{d:'M'+(cursor[0]-3)+' '+cursor[1]+'H'+(cursor[0]+3)+'M'+cursor[0]+' '+(cursor[1]-3)+'V'+(cursor[1]+3),'class':'kcursor'}));
-  $('guide').setAttribute('d',draft.kind==='door'?'M26 92V40A24 24 0 0 1 74 40V92Z':draft.kind==='wall'?'M12 12H88V88H12Z':'M22 22H78V78H22Z');
+  if(tool==='cut'&&!drawing&&kbUsed)group.appendChild(el('path',{d:'M'+(cursor[0]-3)+' '+cursor[1]+'H'+(cursor[0]+3)+'M'+cursor[0]+' '+(cursor[1]-3)+'V'+(cursor[1]+3),'class':'kcursor'}));
+  $('guide').setAttribute('d',GUIDES[draft.kind]||GUIDES.window);
+  document.querySelector('.draw-area').classList.toggle('marking',tool==='mark');
 }
 function preview(){if($('workshop').hidden)return;var r=Casas.render($('preview'),ready()?draft:null,previewSeed);$('preview-bg').style.background=r.background;}
 function point(e){var b=$('drawing').getBoundingClientRect();return [Math.max(0,Math.min(100,Math.round((e.clientX-b.left)/b.width*1000)/10)),Math.max(0,Math.min(100,Math.round((e.clientY-b.top)/b.height*1000)/10))]}
@@ -64,6 +80,7 @@ function finishOutline(raw){
   var w=Math.max.apply(null,xs)-Math.min.apply(null,xs),h=Math.max.apply(null,ys)-Math.min.apply(null,ys);
   if(pts.length<3||w<4||h<4||area2(pts)<15){pending=[];drawing=null;paint();controls();setText('draft-note','Ese contorno es muy pequeño. Hazlo un poco más grande.');return}
   draft.outline=pts;pending=[];drawing=null;paint();changed();
+  if($('detail-tools').open)setTool('mark');
 }
 $('drawing').onpointerdown=function(e){
   if(e.button&&e.button!==0)return;
@@ -81,41 +98,50 @@ $('drawing').onpointermove=function(e){
 };
 function endStroke(){
   if(!drawing)return;
-  if(tool==='cut'){var d=drawing;drawing=null;if(d.moved&&d.pts.length>=3)finishOutline(d.pts);else{pending.push(d.pts[0]);paint();controls()}}
+  if(tool==='cut'){var d=drawing;drawing=null;
+    if(d.moved&&d.pts.length>=3)finishOutline(d.pts);
+    else{
+      // A tap near the first pending point closes the outline, the gesture scissors make.
+      if(pending.length>=3&&Math.hypot(d.pts[0][0]-pending[0][0],d.pts[0][1]-pending[0][1])<=4){finishOutline(pending);return}
+      pending.push(d.pts[0]);paint();controls()}
+  }
   else{drawing=null;changed();}
 }
 $('drawing').onpointerup=endStroke;$('drawing').onpointercancel=endStroke;$('drawing').onlostpointercapture=endStroke;
 $('drawing').onkeydown=function(e){
   if(tool!=='cut')return;
   var step=e.shiftKey?8:2,handled=true;
-  if(e.key==='ArrowLeft')cursor[0]=Math.max(0,cursor[0]-step);
-  else if(e.key==='ArrowRight')cursor[0]=Math.min(100,cursor[0]+step);
-  else if(e.key==='ArrowUp')cursor[1]=Math.max(0,cursor[1]-step);
-  else if(e.key==='ArrowDown')cursor[1]=Math.min(100,cursor[1]+step);
-  else if(e.key==='Enter'||e.key===' '){pending.push(cursor.slice());if(pending.length>160)pending.shift();}
+  if(e.key==='ArrowLeft'){kbUsed=true;cursor[0]=Math.max(0,cursor[0]-step);}
+  else if(e.key==='ArrowRight'){kbUsed=true;cursor[0]=Math.min(100,cursor[0]+step);}
+  else if(e.key==='ArrowUp'){kbUsed=true;cursor[1]=Math.max(0,cursor[1]-step);}
+  else if(e.key==='ArrowDown'){kbUsed=true;cursor[1]=Math.min(100,cursor[1]+step);}
+  else if(e.key==='Enter'||e.key===' '){kbUsed=true;pending.push(cursor.slice());if(pending.length>160)pending.shift();}
   else if(e.key==='c'||e.key==='C'){if(pending.length>=3){finishOutline(pending);}}
+  else if(e.key==='Escape'){pending=[];}
   else handled=false;
   if(handled){e.preventDefault();paint();controls()}
 };
 $('close-outline').onclick=function(){if(pending.length>=3)finishOutline(pending)};
 function setTool(t){
   if(t==='mark'&&!ready()){setText('draft-note','Primero recorta el contorno: el detalle va dentro de la pieza.');return}
-  tool=t;$('tool-cut').setAttribute('aria-pressed',String(t==='cut'));$('tool-mark').setAttribute('aria-pressed',String(t==='mark'));
-  $('mark-controls').hidden=t!=='mark';paint();
+  tool=t;paint();controls();
 }
-$('tool-cut').onclick=function(){setTool('cut')};$('tool-mark').onclick=function(){setTool('mark')};
+$('detail-tools').addEventListener('toggle',function(){
+  if(this.open)setTool('mark');else{endStroke();if(tool==='mark')setTool('cut')}
+});
 function paperName(){$('paper-name').textContent=PAPER_NAMES[PAPERS.indexOf(draft.color)]||''}
 PAPERS.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Papel '+PAPER_NAMES[i]);b.setAttribute('aria-pressed',String(c===draft.color));var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){draft.color=c;paperName();document.querySelectorAll('#papers .swatch').forEach(function(el2){el2.setAttribute('aria-pressed',String(el2===b))});paint();changed()};$('papers').appendChild(b)});
 INKS.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Tinta '+INK_NAMES[i]);b.setAttribute('aria-pressed',String(c===ink));var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){ink=c;document.querySelectorAll('#colors .swatch').forEach(function(el2){el2.setAttribute('aria-pressed',String(el2===b))})};$('colors').appendChild(b)});
 $('width').onchange=function(){width=Number(this.value)};
-$('piece-kind').onchange=function(){draft.kind=this.value;paint();changed()};$('material').onchange=function(){draft.material=this.value;paint();changed()};
+document.querySelectorAll('#kinds .tool').forEach(function(b){b.onclick=function(){draft.kind=b.getAttribute('data-kind');syncKinds();paint();changed()}});
+$('material').onchange=function(){draft.material=this.value;paint();changed()};
 $('undo').onclick=function(){
   if(pending.length)pending.pop();
   else if(draft.marks.length)draft.marks.pop();
   else if(ready())draft.outline=null;
   paint();changed();
 };
-$('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){draft.outline=null;draft.marks=[];pending=[];paint();changed();$('clear-dialog').close()};
+$('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){draft.outline=null;draft.marks=[];pending=[];if(tool==='mark')setTool('cut');paint();changed();$('clear-dialog').close()};
 $('add-shape').onclick=function(){
   var shape=$('shape').value,pts=[];
   if(shape==='circle'){for(var i=0;i<28;i++){var a=i/28*Math.PI*2;pts.push([50+Math.cos(a)*34,50+Math.sin(a)*34])}}

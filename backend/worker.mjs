@@ -4,7 +4,7 @@ const PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d
 const INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34'];
 // Cutout pieces only (v2). The retired stroke format (v1) is rejected, never converted.
 export function normalize(x){
- if(!x||x.v!==2||!['wall','door','window'].includes(x.kind)||!PAPERS.includes(x.color)||!['pencil','wax'].includes(x.material))throw Error('format');
+ if(!x||x.v!==2||!['wall','door','window','roof'].includes(x.kind)||!PAPERS.includes(x.color)||!['pencil','wax'].includes(x.material))throw Error('format');
  const pts=(a,min,max,what)=>{if(!Array.isArray(a)||a.length<min||a.length>max)throw Error(what);return a.map(p=>{if(!Array.isArray(p)||p.length!==2||!p.every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=100))throw Error('point');return p.map(n=>Math.round(n*10)/10)})};
  const outline=pts(x.outline,3,160,'outline');
  // Same degenerate-contour guard as the editor: one closed ring with real area (nonzero fill semantics).

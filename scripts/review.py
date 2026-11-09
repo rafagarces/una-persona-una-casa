@@ -11,7 +11,7 @@ root=pathlib.Path(__file__).parents[1]
 PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a']
 INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34']
 def clean(x):
- assert x.get('v')==2 and x['kind'] in ['wall','door','window'] and x['color'] in PAPERS and x['material'] in ['pencil','wax']
+ assert x.get('v')==2 and x['kind'] in ['wall','door','window','roof'] and x['color'] in PAPERS and x['material'] in ['pencil','wax']
  def pts(a,lo,hi):
   assert isinstance(a,list) and lo<=len(a)<=hi
   out=[]
@@ -54,7 +54,7 @@ if cmd=='list':
  # Reuse the exact house renderer, but never embed data as HTML or load remote scripts.
  source=(root/'index.html').read_text();engine=source[source.index('<script>')+8:source.index('</script>')]
  payload=json.dumps(data).replace('<','\\u003c')
- page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de piezas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:180px;height:180px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada</h1><p>Datos no fiables de visitantes. Revisar el recorte aislado y ambas casas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces, firmas y contenidos que no sean piezas de casa. La casa debe componer sobre la silueta real de la pieza. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';
+ page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de piezas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:180px;height:180px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada</h1><p>Datos no fiables de visitantes. Revisar el recorte aislado y ambas casas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces, firmas y contenidos que no sean piezas de casa. La casa debe componer sobre la silueta real de la pieza (pared, puerta, ventana o tejado). Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';
 items.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · '+row.piece.kind+' · '+row.piece.material;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code,r);document.querySelector('#items').append(a);const raw=document.createElement('div');raw.className='house';raw.style.background='#f7f7f7';raw.innerHTML=Casas.pieceSVG(row.piece);r.append(raw);[10304,10975].forEach(seed=>{const d=document.createElement('div');d.className='house';r.append(d);let out=Casas.render(d,row.piece,seed);d.style.background=out.background});});</script></html>'''
  (out/'index.html').write_text(page)
  print(json.dumps({'private_preview':str(out/'index.html'),'pending':len(data),'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
