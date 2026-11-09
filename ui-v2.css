@@ -63,3 +63,17 @@ a{text-decoration-thickness:1px}
 .page>h1:focus,.page>h1:focus-visible{outline:none}
 /* la sección activa se queda rellena también bajo el cursor */
 .tabs button[aria-current=page],.tabs button[aria-current=page]:hover{background:var(--ink);color:#fff;border-color:var(--ink);text-decoration:none}
+/* v2.1: peso medium y más aire lateral en botones (mismas áreas táctiles de 44px+) */
+button,.tabs button,.tool,.slot{font-weight:500}
+.tabs button[aria-current=page]{font-weight:600}
+.tools{gap:6px}
+.tools button,.kind-picker .tool,.tools.modes .tool{padding-left:10px;padding-right:10px;letter-spacing:0}
+.kind-picker{gap:6px!important}
+.actions button{padding-left:16px;padding-right:16px}
+@media(max-width:760px){
+ .panel{padding:14px 16px 16px}
+ .kind-picker .tool,.tools.modes .tool,.tools button{padding-left:8px;padding-right:8px;font-size:13.5px}
+ .tools.actions button{font-size:13px;line-height:1.15}
+ .tabs{gap:10px}
+ .tabs button{padding-left:20px;padding-right:20px}
+}
