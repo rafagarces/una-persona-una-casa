@@ -32,7 +32,7 @@ h=setup();h.kinds[0].onclick();for(let i=0;i<24;i++)h.draw();assert.equal(h.stat
 console.log('PASS: 24 new cutouts total enforced without deleting previous work');
 const inkOf=h=>h.state().ink||[];
 // Pencil/wax/eraser over the finished house: separate global ink layer, one undo history, saved and published with the house.
-h=setup();assert.equal(h.get('tool-pencil').disabled,true);h.kinds[0].onclick();h.draw();assert.equal(h.get('tool-pencil').disabled,false);const piecesBefore=JSON.stringify(h.state().layers);
+h=setup();assert.equal(h.get('tool-pencil').disabled,false);h.kinds[0].onclick();h.draw();const piecesBefore=JSON.stringify(h.state().layers);
 const stroke=(pts)=>{const d=h.get('drawing');d.onpointerdown(ev(...pts[0]));for(const p of pts.slice(1))d.onpointermove(ev(...p));d.onpointerup()};
 h.get('tool-pencil').onclick();stroke([[5,5],[20,10],[40,30],[60,30]]);assert.equal(inkOf(h).length,1);assert.equal(inkOf(h)[0].k,'p');assert.equal(JSON.stringify(h.state().layers),piecesBefore);
 h.get('tool-wax').onclick();h.get('waxes').children[3].onclick();stroke([[10,80],[50,85],[90,80]]);assert.equal(inkOf(h).length,2);assert.equal(inkOf(h)[1].c,'#4a6a9e');
@@ -47,4 +47,7 @@ console.log('PASS: ink layer: pencil/wax/eraser, cancel adds nothing, one undo h
 // Switching tools mid-contour keeps the pending points; returning to Recortar restores them.
 h=setup();h.kinds[0].onclick();h.draw();h.get('close-outline').onclick();h.tap(20,20);h.tap(80,20);h.tap(80,80);h.get('tool-pencil').onclick();h.get('tool-cut').onclick();h.tap(20,80);h.get('close-outline').onclick();assert.equal(h.state().layers[0].pieces.length,2);assert.deepEqual(h.state().layers[0].pieces[1].outline.length,4);
 console.log('PASS: switching tools keeps the pending contour');
+// Drawing on an empty cartulina is allowed, but publishing still needs at least one cutout; clear-all also clears the drawing.
+h=setup();h.get('tool-wax').onclick();const d0=h.get('drawing');d0.onpointerdown(ev(10,10));d0.onpointermove(ev(40,40));d0.onpointerup();assert.equal(h.state().ink.length,1);assert.equal(h.state().ink[0].c,'#b04a41');assert.equal(h.get('submit-house').disabled,true);assert.equal(h.get('clear').disabled,false);h.get('clear').onclick();h.get('confirm-clear').onclick();assert.equal(h.state().ink.length,0);
+console.log('PASS: draw on empty cartulina, visible default wax, publish needs a cutout, clear-all clears ink');
 })().catch(e=>{console.error(e);process.exit(1)});
