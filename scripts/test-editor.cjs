@@ -1,67 +1,33 @@
-// Regression harness for state changes, without network writes.
+// Offline state regression. No network writes.
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
 class Node{constructor(id=''){this.id=id;this.hidden=false;this.disabled=false;this.attrs={};this.textContent='';this.style={setProperty(){}};this.children=[]}setAttribute(k,v){this.attrs[k]=v}removeAttribute(k){delete this.attrs[k]}getAttribute(k){return this.attrs[k]}appendChild(n){this.children.push(n)}replaceChildren(){this.children=[]}getBoundingClientRect(){return {left:0,top:0,width:100,height:100}}setPointerCapture(){}focus(){}querySelector(){return null}showModal(){this.open=true}close(){this.open=false}}
-function setup(saved){
- const nodes={},get=id=>nodes[id]||(nodes[id]=new Node(id));
- const kinds=['wall','door','window','roof'].map(k=>{const b=new Node();b.attrs['data-kind']=k;return b}),clears=kinds.map(b=>{const x=new Node();x.attrs['data-clear']=b.attrs['data-kind'];return x});
- const storage={...saved};
- const doc={body:new Node(),activeElement:null,getElementById:get,createElement:()=>new Node(),createElementNS:()=>new Node(),querySelectorAll:s=>s.includes('.kind-x')?clears:s.includes('#kinds')?kinds:[],querySelector:s=>s.includes('data-clear=')?clears.find(x=>s.includes(x.attrs['data-clear'])):null};
- get('workshop').hidden=true;
- const context={document:doc,localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v},Casas:{render:()=>({background:'#eeeeee'}),setCommunity(){}},CasasV1:{render:()=>({background:'#eeeeee'})},CasasV2:{render:()=>({background:'#eeeeee'}),setCommunity(){}},fetch:()=>Promise.resolve({ok:true,json:()=>Promise.resolve([])}),setTimeout:()=>1,clearTimeout(){},scrollY:0,URL,Blob,AbortController};
- context.window={scrollTo(){},addEventListener(){}};vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/../app.js','utf8'),context);get('open-workshop').onclick();
- return {get,kinds,clears,storage,design:()=>JSON.parse(storage['casas-design-v1']).design,draw(){for(const p of [[10,10],[90,10],[90,90],[10,90],[10,10]]){get('drawing').onpointerdown({button:0,clientX:p[0],clientY:p[1],pointerId:1,preventDefault(){}});get('drawing').onpointerup()}}};
-}
-let h=setup();h.draw();assert.equal(h.design().windows.length,1);assert.equal(h.get('submit-piece').disabled,false);h.get('undo').onclick();assert.equal(h.design().windows.length,0);assert.equal(h.get('submit-piece').disabled,true);
-h.draw();h.kinds[0].onclick();assert.equal(h.get('submit-piece').disabled,true);h.draw();assert.ok(h.design().wall);assert.equal(h.design().windows.length,1);
-h.get('clear').onclick();h.get('confirm-clear').onclick();assert.equal(h.design().wall,null);assert.equal(h.design().windows.length,0);h.get('undo').onclick();assert.ok(h.design().wall);assert.equal(h.design().windows.length,1);
-h=setup(h.storage);assert.ok(h.design().wall);assert.equal(h.get('submit-house').disabled,false);h.kinds[2].onclick();assert.equal(h.get('submit-piece').disabled,false);h.clears[2].onclick();assert.equal(h.get('submit-piece').disabled,true);
-console.log('PASS: auto-add, undo, current-kind proposal, erase-all + undo, reload, remove');
-
-// Cancelled gestures must not become cutouts, including subsequent capture loss.
-h=setup();
 const ev=(x,y)=>({button:0,clientX:x,clientY:y,pointerId:1,preventDefault(){}});
-h.get('drawing').onpointerdown(ev(10,10));
-h.get('drawing').onpointermove(ev(90,10));h.get('drawing').onpointermove(ev(90,90));
-h.get('drawing').onpointercancel();h.get('drawing').onlostpointercapture();
-assert.equal(h.get('submit-house').disabled,true);
-h.draw();assert.equal(h.design().windows.length,1);
-h.get('house-status').textContent='Casa recibida';h.kinds[0].onclick();
-assert.equal(h.get('house-status').textContent,'');
-const windowPiece=h.design().windows[0], wrongWall={...windowPiece,kind:'wall'};
-h=setup({'casas-design-v1':JSON.stringify({design:{wall:windowPiece,door:null,roof:null,windows:[wrongWall,windowPiece]}})});
-h.kinds[0].onclick();assert.equal(h.get('submit-piece').disabled,true);
-h.draw();assert.equal(h.design().windows.length,1);assert.equal(h.design().wall.kind,'wall');
-console.log('PASS: pointercancel, stale house status, stored slot kinds');
-
-// Rejecting an accidental freehand line preserves an existing tap outline and house.
-h=setup();h.kinds[0].onclick();h.draw();const originalWall=h.design().wall;
-for(const p of [[20,20],[80,20],[80,80]]){h.get('drawing').onpointerdown(ev(...p));h.get('drawing').onpointerup()}
-h.get('drawing').onpointerdown(ev(10,10));h.get('drawing').onpointermove(ev(50,50));h.get('drawing').onpointermove(ev(90,90));h.get('drawing').onpointerup();
-assert.equal(h.get('close-outline').disabled,false);assert.deepEqual(h.design().wall,originalWall);
-assert.match(h.get('draft-note').textContent,/forma suficiente/);
-h.get('drawing').onpointerdown(ev(20,80));assert.equal(h.get('draft-note').textContent,'');h.get('drawing').onpointerup();
-h.get('close-outline').onclick();assert.notDeepEqual(h.design().wall,originalWall);
-console.log('PASS: invalid drag preserves pending tap outline and existing wall');
-
-// A near-flat wall cannot silently replace a useful wall. Other roles retain slim silhouettes.
-h=setup();h.kinds[0].onclick();h.draw();const goodWall=h.design().wall;
-for(const p of [[9.9,45],[90.1,45],[50.1,50]]){h.get('drawing').onpointerdown(ev(...p));h.get('drawing').onpointerup()}
-h.get('close-outline').onclick();assert.deepEqual(h.design().wall,goodWall);assert.match(h.get('draft-note').textContent,/forma suficiente/);
-h.get('undo').onclick();assert.deepEqual(h.design().wall,goodWall);
-console.log('PASS: near-flat wall rejected without replacing valid wall');
-
-// Single canvas: a closed piece stays selected and editable (recolor + undo); one nav, no "Volver".
-h=setup();h.kinds[0].onclick();h.draw();
-const w0=h.design().wall,sw=h.get('papers').children;
-assert.ok(w0);assert.equal(h.get('submit-piece').disabled,false);
-sw[1].onclick();assert.equal(h.design().wall.color,'#dfa3a5');assert.deepEqual(h.design().wall.outline,w0.outline);
-assert.equal(h.get('paper-name').textContent,'Rosa');
-h.get('undo').onclick();assert.equal(h.design().wall.color,w0.color);
-h.kinds[2].onclick();h.draw();sw[2].onclick();assert.equal(h.design().windows[0].color,'#b04a41');assert.equal(h.design().wall.color,w0.color);
-console.log('PASS: selected piece recolor keeps outline, undo restores, other pieces untouched');
-assert.equal(h.get('home').hidden,true);assert.equal(h.get('workshop').hidden,false);assert.equal(h.get('open-workshop').attrs['aria-current'],'page');
-h.get('open-gallery').onclick();assert.equal(h.get('workshop').hidden,true);assert.equal(h.get('gallery').hidden,false);assert.equal(h.get('open-gallery').attrs['aria-current'],'page');assert.equal(h.get('open-workshop').attrs['aria-current'],undefined);
-assert.equal(h.get('examples-grid').children.length,30);assert.equal(h.get('gallery-visitors').hidden,true);
-h.get('brand').onclick();assert.equal(h.get('home').hidden,false);assert.equal(h.get('gallery').hidden,true);
-h.get('open-workshop').onclick();assert.deepEqual(h.design().wall.outline,w0.outline);
-console.log('PASS: shared navigation, 30 examples apart from visitor houses, design survives section changes');
+function setup(saved){const nodes={},get=id=>nodes[id]||(nodes[id]=new Node(id));const kinds=['wall','door','window','roof'].map(k=>{const b=new Node();b.attrs['data-kind']=k;return b}),clears=kinds.map(b=>{const x=new Node();x.attrs['data-clear']=b.attrs['data-kind'];return x}),storage={...saved},writes=[];
+const doc={body:new Node(),activeElement:null,getElementById:get,createElement:()=>new Node(),createElementNS:()=>new Node(),querySelectorAll:s=>s.includes('.kind-x')?clears:s.includes('#kinds')?kinds:s.includes('#papers')?get('papers').children:[],querySelector:s=>s.includes('data-clear=')?clears.find(x=>s.includes(x.attrs['data-clear'])):null};get('workshop').hidden=true;
+const renderer={render:()=>({background:'#eeeeee'}),setCommunity(){}};const context={document:doc,localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v},Casas:renderer,CasasV1:renderer,CasasV2:renderer,CasasV3:renderer,CasasV4:renderer,fetch:(url,options)=>{if(options)writes.push({url,...options});return Promise.resolve({ok:true,json:()=>Promise.resolve(options?{id:'test-private-reference'}:[])})},setTimeout:()=>1,clearTimeout(){},URL,Blob,AbortController};context.window={scrollTo(){},addEventListener(){}};vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/../app.js','utf8'),context);get('open-workshop').onclick();
+return {get,kinds,clears,storage,writes,state:()=>JSON.parse(storage['casas-design-v1']),papers:()=>get('papers').children,tap(x,y){get('drawing').onpointerdown(ev(x,y));get('drawing').onpointerup()},draw(pts=[[10,10],[90,10],[90,90],[10,90]]){if(get('close-outline').textContent==='Nuevo recorte')get('close-outline').onclick();for(const p of pts)this.tap(...p);get('close-outline').onclick()}}}
+(async()=>{
+let h=setup();assert.equal(h.state().layers.length,0);assert.equal(h.get('submit-house').disabled,true);h.kinds[0].onclick();h.papers()[2].onclick();h.draw([[10,20],[50,20],[50,85],[10,85]]);assert.equal(h.get('close-outline').textContent,'Nuevo recorte');h.get('close-outline').onclick();h.papers()[3].onclick();h.draw([[50,20],[90,20],[90,85],[50,85]]);
+let layer=h.state().layers[0];assert.equal(layer.pieces.length,2);assert.equal(layer.pieces[0].color,'#b04a41');assert.equal(layer.pieces[1].color,'#4a6a9e');assert.deepEqual(layer.pieces[0].outline,[[10,20],[50,20],[50,85],[10,85]]);
+// Select older cutout and edit only it. Undo restores its color.
+h.tap(25,40);h.papers()[4].onclick();assert.equal(h.state().layers[0].pieces[0].color,'#5d8266');assert.equal(h.state().layers[0].pieces[1].color,'#4a6a9e');h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].color,'#b04a41');
+// Large door stays in its own coordinates, no slot fit; previous colors stay.
+h.kinds[1].onclick();h.draw([[35,35],[70,35],[70,85],[35,85]]);assert.deepEqual(h.state().layers[1].pieces[0].outline,[[35,35],[70,35],[70,85],[35,85]]);assert.equal(h.state().layers[0].pieces.length,2);
+await h.get('submit-house').onclick();let sent=JSON.parse(h.writes.at(-1).body);assert.equal(sent.house.rv,4);assert.equal(sent.house.layers[0].pieces.length,2);assert.equal(sent.action,'propose-for-review');assert.equal(h.get('submit-house').disabled,true);
+console.log('PASS: blank new canvas, bicolor layer, selected older piece recolor+undo, large door exact coordinates, rv4 proposal');
+// Remove whole layer, clear-all, undo and reload are non-destructive.
+h.clears[0].onclick();assert.equal(h.state().layers.length,1);h.get('undo').onclick();assert.equal(h.state().layers[0].pieces.length,2);let before=h.state();h.get('clear').onclick();h.get('confirm-clear').onclick();assert.equal(h.state().layers.length,0);h.get('undo').onclick();assert.deepEqual(h.state(),before);h=setup(h.storage);assert.deepEqual(h.state().layers,before.layers);assert.equal(h.state().seed,before.seed);
+h.get('open-workshop').onclick();assert.equal(h.get('workshop').hidden,false);h.get('open-gallery').onclick();h.get('open-gallery').onclick();assert.equal(h.get('gallery').hidden,false);assert.equal(h.get('examples-grid').children.length,30);h.get('brand').onclick();assert.equal(h.get('home').hidden,false);
+console.log('PASS: remove layer/clear/undo/reload preserve pieces+seed; shared stable nav; 30 examples');
+// Invalid drag keeps existing pending polygon and pieces. Cancellation/lost capture adds nothing.
+h=setup();h.kinds[0].onclick();h.draw();const good=h.state().layers;h.get('close-outline').onclick();h.tap(20,20);h.tap(80,20);h.tap(80,80);h.get('drawing').onpointerdown(ev(10,10));h.get('drawing').onpointermove(ev(50,50));h.get('drawing').onpointermove(ev(90,90));h.get('drawing').onpointerup();assert.deepEqual(h.state().layers,good);assert.equal(h.get('close-outline').disabled,false);assert.match(h.get('draft-note').textContent,/forma suficiente/);h.get('drawing').onpointerdown(ev(10,10));h.get('drawing').onpointermove(ev(90,10));h.get('drawing').onpointermove(ev(90,90));h.get('drawing').onpointercancel();h.get('drawing').onlostpointercapture();assert.deepEqual(h.state().layers,good);
+h=setup();h.get('drawing').onpointerdown(ev(10,10));h.get('drawing').onpointermove(ev(90,10));h.get('drawing').onpointermove(ev(90,90));h.get('drawing').onlostpointercapture();assert.equal(h.get('submit-house').disabled,true);
+console.log('PASS: invalid contours preserve pending+pieces; pointercancel/lostcapture never add a partial cutout');
+// Thin, non-degenerate walls are now valid: no role templates.
+h=setup();h.kinds[0].onclick();h.draw([[9.9,45],[90.1,45],[50.1,50]]);assert.equal(h.state().layers[0].pieces[0].kind,'wall');
+// Exact legacy data/marks remain as immutable base with backup; tint does not mutate original.
+const p={v:2,kind:'wall',color:'#c98d45',material:'wax',outline:[[10,10],[90,10],[90,90],[10,90]],marks:[{color:'#2b2a33',width:2,points:[[20,20],[80,80]]}]};const old={design:{wall:p,door:null,roof:null,windows:[]}};h=setup({'casas-design-v1':JSON.stringify(old)});assert.equal(h.state().rv,4);assert.equal(h.state().seed,1049771);assert.deepEqual(h.state().base.wall,p);assert.deepEqual(JSON.parse(h.storage['casas-design-rv2-backup']),old);h.kinds[0].onclick();h.papers()[3].onclick();assert.equal(h.state().tints.wall,'#4a6a9e');assert.deepEqual(h.state().base.wall,p);h.get('undo').onclick();assert.deepEqual(h.state().tints,{});
+console.log('PASS: free wall proportions; exact legacy base+marks+backup, tint-only edit+undo');
+h=setup();h.kinds[0].onclick();for(let i=0;i<24;i++)h.draw();assert.equal(h.state().layers[0].pieces.length,24);h.draw();assert.equal(h.state().layers[0].pieces.length,24);assert.match(h.get('draft-note').textContent,/24 recortes/);
+console.log('PASS: 24 new cutouts total enforced without deleting previous work');
+})().catch(e=>{console.error(e);process.exit(1)});
