@@ -12,4 +12,14 @@ assert.equal((await worker.fetch(req('/submit',{piece:p,action:'propose-for-revi
 assert.equal((await worker.fetch(req('/submit-house',{house:h,action:'propose-for-review'},'https://bad'),env)).status,403);
 assert.equal((await worker.fetch(req('/submit-house',{house:h}),env)).status,400);
 assert.equal(inserts,2);
+const realNow=Date.now;
+try{
+ Date.now=()=>1794355199999;
+ assert.equal((await worker.fetch(req('/submit-house',{house:h,consent:true}),env)).status,201);
+ Date.now=()=>1794355200000;
+ assert.equal((await worker.fetch(req('/submit-house',{house:h,consent:true}),env)).status,400);
+ assert.equal((await worker.fetch(req('/submit-house',{house:h,action:'propose-for-review'}),env)).status,201);
+ assert.equal((await worker.fetch(req('/submit-house',{house:h,consent:true,action:'wrong'}),env)).status,400);
+}finally{Date.now=realNow}
+assert.equal(inserts,4);
 console.log('worker normalization, input validation, shared-cap SQL, both routes: PASS');

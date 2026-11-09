@@ -54,3 +54,5 @@ Revisión con acceso propio:
 - Commit y push al repo `rafagarces/una-persona-una-casa`. Tras verificar casa y banco servido, `finalize-house UUID SHA256` comprueba la composición exacta en el banco público antes de eliminar la copia privada.
 - `withdraw-house UUID`, commit, publicar y verificar. Las copias descargadas no pueden retirarse.
 - `python scripts/deploy.py` aplica la ampliación aditiva de esquema y los triggers, luego actualiza el mismo worker. No crea recursos si `backend/config.json` existe.
+
+La guarda editorial para NUEVAS paredes rechaza una proporción entre lados menor de 1:8 antes de sustituir la pared previa; conserva el trazo abierto y permite corregirlo. No se aplica a otras partes finas ni retroactivamente a casas ya recibidas. No cambia normalización del backend ni rv1/rv2.
