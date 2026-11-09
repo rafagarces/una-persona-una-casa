@@ -36,20 +36,23 @@ fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
 function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();preview();saveDesign()}if(name==='gallery'){paintGallery();loadHouses(true)}window.scrollTo(0,0);if(name!=='home')$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
-var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedSig=null;
+var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedVisitors=null,examplesPainted=false,renderQueue=[],renderScheduled=false;
+function queueRender(fn){renderQueue.push(fn);if(renderScheduled)return;renderScheduled=true;
+ if(!window.requestAnimationFrame){while(renderQueue.length)renderQueue.shift()();renderScheduled=false;return}
+ requestAnimationFrame(function flush(){var n=8;while(n--&&renderQueue.length)renderQueue.shift()();if(renderQueue.length)requestAnimationFrame(flush);else renderScheduled=false})}
 function bankSig(){return (housesBank||[]).map(function(h){return h.id||('seed'+h.seed)}).join(',')}
 async function loadHouses(force){
  if(housesLoading)return housesLoading;
  if(!force&&housesBank&&!galleryError&&Date.now()-housesAt<60000)return;
  housesLoading=(async function(){
-  var hadError=galleryError;
+  var hadError=galleryError,controller=new AbortController(),timer=setTimeout(function(){controller.abort()},15000);
   try{var published=[],next=null,pages=0;
-   do{var url=ENDPOINT+'/gallery'+(next?'?before='+next.before+'&id='+encodeURIComponent(next.id):'');var r=await fetch(url,{cache:'no-store'});if(!r.ok)throw Error();var data=await r.json();if(!Array.isArray(data.houses))throw Error();published=published.concat(data.houses.filter(validHouse));next=data.next;}while(next&&++pages<20);
-   var r=await fetch('houses.json',{cache:'no-cache'});if(!r.ok)throw Error();var old=await r.json();if(!Array.isArray(old))throw Error();var ids=new Set(published.map(function(h){return h.id}));housesBank=published.concat(old.filter(function(h){return validHouse(h)&&!ids.has(h.id)})).slice(0,600);
+   do{var url=ENDPOINT+'/gallery'+(next?'?before='+next.before+'&id='+encodeURIComponent(next.id):'');var r=await fetch(url,{cache:'no-store',signal:controller.signal});if(!r.ok)throw Error();var data=await r.json();if(!Array.isArray(data.houses))throw Error();published=published.concat(data.houses.filter(validHouse));next=data.next;}while(next&&++pages<20);
+   var r=await fetch('houses.json',{cache:'no-cache',signal:controller.signal});if(!r.ok)throw Error();var old=await r.json();if(!Array.isArray(old))throw Error();var ids=new Set(published.map(function(h){return h.id}));housesBank=published.concat(old.filter(function(h){return validHouse(h)&&!ids.has(h.id)})).slice(0,600);
    var changed=bankSig()!==housesSig;housesSig=bankSig();housesAt=Date.now();galleryError=false;
    if((changed||hadError)&&currentView==='gallery')paintGallery();
   }catch(e){galleryError=true;if(currentView==='gallery')paintGallery()}
-  housesLoading=null;
+  clearTimeout(timer);housesLoading=null;
  })();
  return housesLoading;
 }
@@ -62,18 +65,22 @@ function paintCard(grid,item,index,set){
   card.setAttribute('aria-label',item.label+'. Abrir en grande. Casa '+(index+1)+' de '+set.length+'.');
   card.onclick=function(){openViewer(set,index,card)};
   var art=document.createElement('div');art.className='art';art.setAttribute('aria-hidden','true');card.appendChild(art);grid.appendChild(card);
-  try{var r=rendererFor(item.rv).render(art,item.design,item.seed);card.style.background=r.background}catch(e){card.remove()}
+  queueRender(function(){try{var r=rendererFor(item.rv).render(art,item.design,item.seed);card.style.background=r.background}catch(e){card.remove()}});
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 function paintGallery(){
   var sig=bankSig();
-  if(sig!==paintedSig){
-    paintedSig=sig;
-    var vg=$('gallery-grid'),eg=$('examples-grid');vg.replaceChildren();eg.replaceChildren();
+  if(sig!==paintedVisitors){
+    paintedVisitors=sig;
+    var vg=$('gallery-grid');vg.replaceChildren();
     var visitors=(housesBank||[]).map(function(h){return {design:h,seed:h.seed,rv:h.rv,label:'Casa de visitante hecha con recortes de papel'}});
     $('gallery-visitors').hidden=!visitors.length;
     visitors.forEach(function(item,i){paintCard(vg,item,i,visitors)});
-    // Examples are fixed rv2 seeds with an empty shared bank, so they never change when pieces are approved.
+  }
+  // Examples are fixed rv2 seeds with an empty shared bank: they paint once per session, never on visitor changes.
+  if(!examplesPainted){
+    examplesPainted=true;
+    var eg=$('examples-grid');eg.replaceChildren();
     CasasV2.setCommunity([]);
     try{EXAMPLE_SET.forEach(function(item,i){paintCard(eg,item,i,EXAMPLE_SET)})}finally{CasasV2.setCommunity(COMMUNITY_LIST)}
   }
