@@ -188,15 +188,52 @@
     if(rnd()<.3)pen+=pencil([[bx-4,by+bh+R(-.5,.5)],[bx+bw*.5,by+bh+R(-1,1)],[bx+bw+8,by+bh+R(-.5,.5)]],.4);
     // background square, slightly rotated, on white paper
     var rotp=R(-1.4,1.4),rotb=R(-1.8,1.8);
+    var bl=rgb(bg),sink=(.3*bl[0]+.59*bl[1]+.11*bl[2])<68?'#f4efe4':'#241e2c';
     var svg='<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'+
      '<defs><filter id="sh" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".06" dy=".1" stdDeviation=".1" flood-color="#241a30" flood-opacity=".11"/></filter>'+
-     '<filter id="wax" filterUnits="userSpaceOnUse" x="-60" y="-60" width="220" height="220"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="3" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -10 7.6" result="m"/><feGaussianBlur in="SourceGraphic" stdDeviation=".06" result="b"/><feComposite in="b" in2="m" operator="in"/></filter><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="'+Math.floor(R(1,99))+'"/><feColorMatrix values="0 0 0 0 .25  0 0 0 0 .22  0 0 0 0 .2  0 0 0 .3 -.1"/></filter></defs>'+
+     '<filter id="ink" filterUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="11" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -9 7.2" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in"/></filter><filter id="wax" filterUnits="userSpaceOnUse" x="-60" y="-60" width="220" height="220"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="3" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -10 7.6" result="m"/><feGaussianBlur in="SourceGraphic" stdDeviation=".06" result="b"/><feComposite in="b" in2="m" operator="in"/></filter><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="'+Math.floor(R(1,99))+'"/><feColorMatrix values="0 0 0 0 .25  0 0 0 0 .22  0 0 0 0 .2  0 0 0 .3 -.1"/></filter></defs>'+
      '<g transform="rotate('+f(rotp)+' 50 50)"><rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/>'+
      '<rect x="3" y="3" width="94" height="94" fill="#fff" opacity=".0"/>'+
      '<g transform="rotate('+f(rotb)+' 50 50)"><path d="'+path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)])+'" fill="'+bg+'"/>'+
-     '<g id="hs">'+out+pen+'</g></g>'+
+     '<g id="hs">'+out+pen+'</g>'+stamp(sink,14,13,87,85)+'</g>'+
      '<rect x="3" y="3" width="94" height="94" filter="url(#grain)" opacity=".25"/></g></svg>';
     return svg;
+  }
+  // one-ink wood-type stamp: geometric block letters built from strokes and polygons
+  var GL={
+    P:{w:10,s:[[[1.5,14],[1.5,1.5],[8.5,1.5],[8.5,7],[1.5,7]]]},
+    O:{w:10,s:[[[1.5,3.5],[3.5,1.5],[6.5,1.5],[8.5,3.5],[8.5,10.5],[6.5,12.5],[3.5,12.5],[1.5,10.5],[1.5,3.5]]]},
+    R:{w:10,s:[[[1.5,14],[1.5,1.5],[8.5,1.5],[8.5,7],[1.5,7]],[[4.5,7],[8.5,14]]]},
+    E:{w:10,s:[[[8.5,1.5],[1.5,1.5],[1.5,12.5],[8.5,12.5]],[[1.5,7],[7,7]]]},
+    L:{w:9,s:[[[1.5,0],[1.5,12.5],[8,12.5]]]},
+    D:{w:10,s:[[[1.5,1.5],[6,1.5],[8.5,4],[8.5,10],[6,12.5],[1.5,12.5],[1.5,1.5]]]},
+    C:{w:10,s:[[[8.5,1.5],[3.5,1.5],[1.5,3.5],[1.5,10.5],[3.5,12.5],[8.5,12.5]]]},
+    H:{w:10,s:[[[1.5,0],[1.5,14]],[[8.5,0],[8.5,14]],[[1.5,7],[8.5,7]]]},
+    A:{w:10,s:[[[1.5,14],[1.5,5],[5,1.5],[8.5,5],[8.5,14]],[[1.5,8.5],[8.5,8.5]]]},
+    I:{w:3,s:[[[1.5,0],[1.5,14]]]},
+    V:{w:10,f:'M0 0H3.4L5 9.2L6.6 0H10L6.6 14H3.4Z'},
+    N:{w:10,f:'M0 0H3L7 8.6V0H10V14H7L3 5.4V14H0Z'}
+  };
+  function stamp(ink,x0,y0,x1,y1){
+    var lines=['POR EL','DERECHO','A LA','VIVIENDA'],sc=.7,sp=2.4,gapY=5.2,maxW=(x1-x0-12)/sc;
+    function lw(t){var w=0;for(var i=0;i<t.length;i++)w+=t[i]===' '?6:GL[t[i]].w;return w}
+    var lh=14*sc,total=lines.length*lh+(lines.length-1)*gapY*sc*1.0,y=(y0+y1)/2-total/2,o='';
+    lines.forEach(function(t){
+      var n=t.replace(/ /g,'').length,base=lw(t),gaps=t.length-1,g=Math.min(9,Math.max(sp,(maxW-base)/gaps)),
+          w=base+g*gaps,x=(x0+x1)/2-w*sc/2;
+      for(var i=0;i<t.length;i++){var c=t[i];
+        if(c===' '){x+=(6+g)*sc;continue}
+        var G=GL[c];
+        o+='<g transform="translate('+f(x)+' '+f(y)+') scale('+sc+')">';
+        if(G.f)o+='<path d="'+G.f+'" fill="'+ink+'" stroke="none"/>';
+        else G.s.forEach(function(p){o+='<path d="M'+p.map(function(q){return q[0]+' '+q[1]}).join('L')+'" fill="none" stroke="'+ink+'" stroke-width="3.3" stroke-linejoin="miter" stroke-miterlimit="6"/>'});
+        o+='</g>';
+        x+=(G.w+g)*sc;
+      }
+      y+=lh+gapY*sc;
+    });
+    o+='<rect x="'+x0+'" y="'+y0+'" width="'+(x1-x0)+'" height="'+(y1-y0)+'" fill="none" stroke="'+ink+'" stroke-width="1.3"/>';
+    return'<g filter="url(#ink)" opacity=".88">'+o+'</g>';
   }
   var card=document.getElementById('card');
   function go(){seed=(Math.random()*4294967296)>>>0;card.innerHTML=house();document.body.style.background=PAGE;
