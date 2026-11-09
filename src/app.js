@@ -33,7 +33,7 @@ function onpage(bg){var n=parseInt(bg.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=
 // Portada: el SVG de cada casa (sombras + grano de papel) es lo caro de rasterizar, sobre todo en iPhone.
 // Las próximas casas se componen y rasterizan por adelantado en segundo plano (misma técnica que el visor);
 // pulsar ↻ solo cambia un bitmap ya listo. Si la cola está vacía, se renderiza como antes y se repone.
-var homeQueue=[],homePrepRun=0,HOME_AHEAD=2,homeResizeTimer=0,homePrepBusy=false,homeWaiting=false,paperFailed=false,rasterSlow=false,rasterTimed=false,homeWatchdog=0;
+var homeQueue=[],homePrepRun=0,HOME_AHEAD=2,homeResizeTimer=0,homePrepBusy=false,homeWaiting=false,paperFailed=false,rasterSlow=false,rasterTimed=false,homeWatchdog=0,lastRasterMs=0,probeDone=false;
 function homePx(){var w=$('card').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function applyHome(seed,background,shared){
  homeSeed=seed;if(previewSeed===null)previewSeed=homeSeed;
@@ -74,13 +74,33 @@ function prepHome(){
   var svg=tmp.firstChild;
   if(tmp.remove)tmp.remove();else if(tmp.parentNode)tmp.parentNode.removeChild(tmp);
   if(!svg){homePrepBusy=false;return}
-  makeBitmap('home-'+seed,svg,px).then(function(cv){
-   homePrepBusy=false;
-   if(!cv||run!==homePrepRun)return;
-   homeQueue.push({seed:seed,cv:cv,px:px,background:r.background,shared:r.shared});
-   serveHome();
-   prepHome();
-  });
+  var full=function(){
+   makeBitmap('home-'+seed,svg,px).then(function(cv){
+    homePrepBusy=false;
+    if(!cv||run!==homePrepRun)return;
+    homeQueue.push({seed:seed,cv:cv,px:px,background:r.background,shared:r.shared});
+    serveHome();
+    prepHome();
+   });
+  };
+  if(!probeDone){
+   // Sonda previa a un cuarto de tamaño (un diesciséisavo del coste de rasterizado):
+   // si la extrapolación al tamaño real supera el umbral, este dispositivo nunca ejecuta
+   // la rasterización grande y sirve renders directos. Así el primer bloqueo largo no llega.
+   var ppx=Math.max(32,Math.round(px/4));
+   makeBitmap('probe',svg,ppx,true).then(function(pc){
+    probeDone=true;
+    if(lastRasterMs*(px/ppx)*(px/ppx)>500||lastRasterMs>200)rasterSlow=true;
+    if(rasterSlow){
+     homePrepBusy=false;
+     if(homeWaiting&&run===homePrepRun&&currentView==='home'){homeWaiting=false;clearTimeout(homeWatchdog);$('card').replaceChildren(svg);applyHome(seed,r.background,r.shared)}
+     return
+    }
+    full();
+   });
+   return
+  }
+  full();
  });
 }
 window.addEventListener('resize',function(){clearTimeout(homeResizeTimer);homeResizeTimer=setTimeout(function(){homePrepRun++;prepHome()},300)});
@@ -197,13 +217,14 @@ function loadViewerPaper(){
   try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet)prefetchViewer();prepHome()};fr.onerror=function(){paperFailed=true};fr.readAsDataURL(b)}).catch(function(){paperFailed=true})}catch(e){paperFailed=true}
 }
 function viewerPx(){var w=$('viewer-art').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
-function makeBitmap(key,svg,px){
+function makeBitmap(key,svg,px,probe){
   return new Promise(function(resolve){
     var t0=performance.now();
     function done(cv){
-      // La primera rasterización mide el motor: si supera el umbral, este dispositivo no
-      // vuelve a rasterizar en segundo plano y los refresh se sirven con render directo.
-      if(!rasterTimed){rasterTimed=true;if(performance.now()-t0>800)rasterSlow=true}
+      lastRasterMs=performance.now()-t0;
+      // Red de seguridad: si la primera rasterización a tamaño real supera el umbral, este
+      // dispositivo no vuelve a rasterizar en segundo plano y los refresh van con render directo.
+      if(!probe&&!rasterTimed){rasterTimed=true;if(lastRasterMs>800)rasterSlow=true}
       resolve(cv)
     }
     try{
@@ -219,7 +240,7 @@ function makeBitmap(key,svg,px){
   });
 }
 function prefetchViewer(){
-  if(!viewerSet||!viewerPaperURI||rasterSlow)return;
+  if(!viewerSet||!viewerPaperURI||rasterSlow||!probeDone)return;
   var run=++viewerPrefetchRun,px=viewerPx();if(!px)return;
   var n=viewerSet.length,order=[0,1,-1,2,-2].filter(function(o,i,a){return Math.abs(o)<=Math.floor(n/2)||o===0}),base=viewerIndex,keys={};
   var items=order.map(function(o){return viewerSet[(base+o+n*3)%n]}).filter(function(it){var k=viewerKey(it);if(keys[k])return false;keys[k]=1;return true});
