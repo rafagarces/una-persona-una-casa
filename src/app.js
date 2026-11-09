@@ -33,7 +33,7 @@ function onpage(bg){var n=parseInt(bg.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=
 // Portada: el SVG de cada casa (sombras + grano de papel) es lo caro de rasterizar, sobre todo en iPhone.
 // Las próximas casas se componen y rasterizan por adelantado en segundo plano (misma técnica que el visor);
 // pulsar ↻ solo cambia un bitmap ya listo. Si la cola está vacía, se renderiza como antes y se repone.
-var homeQueue=[],homePrepRun=0,HOME_AHEAD=2,homeResizeTimer=0,homePrepBusy=false,homeWaiting=false,paperFailed=false;
+var homeQueue=[],homePrepRun=0,HOME_AHEAD=2,homeResizeTimer=0,homePrepBusy=false,homeWaiting=false,paperFailed=false,rasterSlow=false,rasterTimed=false,homeWatchdog=0;
 function homePx(){var w=$('card').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function applyHome(seed,background,shared){
  homeSeed=seed;if(previewSeed===null)previewSeed=homeSeed;
@@ -44,18 +44,26 @@ function serveHome(){
  if(!homeWaiting||currentView!=='home')return;
  var px=homePx(),h=null;
  while(homeQueue.length){var q=homeQueue.shift();if(q.px===px){h=q;break}}
- if(h){homeWaiting=false;$('card').replaceChildren(h.cv);applyHome(h.seed,h.background,h.shared)}
+ if(h){homeWaiting=false;clearTimeout(homeWatchdog);$('card').replaceChildren(h.cv);applyHome(h.seed,h.background,h.shared)}
 }
 function fresh(){
  // Pulsar nunca renderiza en cadena: con la cola vacía la casa llega en cuanto termina
  // la rasterización en segundo plano (las pulsaciones seguidas se juntan en una), y el
  // botón y la página siguen respondiendo. Solo sin textura disponible se renderiza directo.
  if(homeWaiting)return;
- if(!homeQueue.length&&paperFailed){var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);return}
+ if(!homeQueue.length&&(paperFailed||rasterSlow)){var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);return}
  homeWaiting=true;serveHome();prepHome();
+ // En motores que rasterizan el SVG en el hilo principal (WebKit) la casa puede no llegar
+ // nunca o tardar segundos con la página congelada: si el bitmap no llega a tiempo, se
+ // sirve un render directo y no se vuelve a rasterizar en segundo plano en este dispositivo.
+ clearTimeout(homeWatchdog);homeWatchdog=setTimeout(function(){
+  if(!homeWaiting)return;
+  rasterSlow=true;homeQueue.length=0;homeWaiting=false;
+  var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);
+ },4000);
 }
 function prepHome(){
- if(homePrepBusy||currentView!=='home'||!viewerPaperURI)return;
+ if(homePrepBusy||currentView!=='home'||!viewerPaperURI||rasterSlow)return;
  var run=homePrepRun,px=homePx();if(!px||homeQueue.length>=HOME_AHEAD&&!homeWaiting)return;
  homePrepBusy=true;
  schedule(function(){
@@ -191,20 +199,27 @@ function loadViewerPaper(){
 function viewerPx(){var w=$('viewer-art').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function makeBitmap(key,svg,px){
   return new Promise(function(resolve){
+    var t0=performance.now();
+    function done(cv){
+      // La primera rasterización mide el motor: si supera el umbral, este dispositivo no
+      // vuelve a rasterizar en segundo plano y los refresh se sirven con render directo.
+      if(!rasterTimed){rasterTimed=true;if(performance.now()-t0>800)rasterSlow=true}
+      resolve(cv)
+    }
     try{
       var c=svg.cloneNode(true);c.setAttribute('width',px);c.setAttribute('height',px);
       var xml=new XMLSerializer().serializeToString(c).replace('href="paper.png"','href="'+viewerPaperURI+'"');
       var url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml'})),img=new Image();
       img.onload=function(){
-        try{var cv=document.createElement('canvas');cv.width=cv.height=px;cv.getContext('2d').drawImage(img,0,0,px,px);URL.revokeObjectURL(url);resolve(cv)}catch(e){URL.revokeObjectURL(url);resolve(null)}
+        try{var cv=document.createElement('canvas');cv.width=cv.height=px;cv.getContext('2d').drawImage(img,0,0,px,px);URL.revokeObjectURL(url);done(cv)}catch(e){URL.revokeObjectURL(url);done(null)}
       };
-      img.onerror=function(){URL.revokeObjectURL(url);resolve(null)};
+      img.onerror=function(){URL.revokeObjectURL(url);done(null)};
       img.src=url;
-    }catch(e){resolve(null)}
+    }catch(e){done(null)}
   });
 }
 function prefetchViewer(){
-  if(!viewerSet||!viewerPaperURI)return;
+  if(!viewerSet||!viewerPaperURI||rasterSlow)return;
   var run=++viewerPrefetchRun,px=viewerPx();if(!px)return;
   var n=viewerSet.length,order=[0,1,-1,2,-2].filter(function(o,i,a){return Math.abs(o)<=Math.floor(n/2)||o===0}),base=viewerIndex,keys={};
   var items=order.map(function(o){return viewerSet[(base+o+n*3)%n]}).filter(function(it){var k=viewerKey(it);if(keys[k])return false;keys[k]=1;return true});
