@@ -7,8 +7,13 @@ var KINDS=['wall','door','window','roof'];
 var ENDPOINT='https://casas-de-papel-pieces.rafagarces87-store.workers.dev';
 var draft={v:2,kind:'window',color:PAPERS[3],material:'pencil',outline:null,marks:[]};
 var tool='cut',ink=INKS[0],width=2,drawing=null,pending=[],cursor=[50,50],kbUsed=false,previewSeed=1049771,saveTimer,previewTimer,submitBusy=false,submittedHash='',previousFocus,homeScroll=0;
-var KEY='casas-piece-v2';
+var KEY='casas-piece-v2',DESIGN_KEY='casas-design-v1';
 try{var saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved&&valid(saved))draft=saved}catch(e){}
+var design={wall:null,door:null,roof:null,windows:[]};
+try{var savedDesign=JSON.parse(localStorage.getItem(DESIGN_KEY)||'null');if(savedDesign){['wall','door','roof'].forEach(function(k){if(valid(savedDesign[k]))design[k]=savedDesign[k]});if(Array.isArray(savedDesign.windows))design.windows=savedDesign.windows.filter(valid).slice(0,4)}}catch(e){}
+function saveDesign(){try{localStorage.setItem(DESIGN_KEY,JSON.stringify(design))}catch(e){}}
+function designCount(){return (design.wall?1:0)+(design.door?1:0)+(design.roof?1:0)+design.windows.length}
+var KIND_NAME={wall:'Pared',door:'Puerta',window:'Ventana',roof:'Tejado'},KIND_ART={wall:'la pared',door:'la puerta',window:'la ventana',roof:'el tejado'};
 try{if(localStorage.getItem('casas-piece-v1'))$('legacy-note').hidden=false}catch(e){}
 function validPts(a,min,max){return Array.isArray(a)&&a.length>=min&&a.length<=max&&a.every(function(p){return Array.isArray(p)&&p.length===2&&p.every(function(n){return Number.isFinite(n)&&n>=0&&n<=100})})}
 function valid(p){return p&&p.v===2&&KINDS.includes(p.kind)&&PAPERS.includes(p.color)&&['pencil','wax'].includes(p.material)&&(p.outline===null||validPts(p.outline,3,160))&&Array.isArray(p.marks)&&p.marks.length<=12&&p.marks.reduce(function(n,s){return n+s.points.length},0)<=400&&p.marks.every(function(s){return INKS.includes(s.color)&&[1,2,3].includes(s.width)&&validPts(s.points,1,60)})}
@@ -28,11 +33,28 @@ function helpText(){
   var t=tool==='mark'?HELP_MARK:(pending.length>=3?HELP_CLOSE:HELP_DRAW);
   setText('work-help',t);
 }
-function sync(){syncKinds();$('material').value=draft.material;paint();controls();paperName()}
+function sync(){syncKinds();$('material').value=draft.material;paint();paintSlots();controls();paperName()}
+function paintSlots(){
+  var box=$('design-slots');box.replaceChildren();
+  ['wall','roof','door','window'].forEach(function(k){
+    var n=k==='window'?design.windows.length:(design[k]?1:0);
+    var chip=document.createElement('span');chip.className='slot'+(n?' filled':'');
+    chip.appendChild(document.createTextNode(KIND_NAME[k]+(k==='window'&&n>1?' ×'+n:'')+(n?' ✓':'')));
+    if(n){var x=document.createElement('button');x.type='button';x.className='slot-x';x.setAttribute('aria-label','Quitar '+(k==='window'?(n>1?'las ventanas':'la ventana'):KIND_ART[k])+' de tu casa');x.textContent='×';x.onclick=function(){if(k==='window')design.windows=[];else design[k]=null;paintSlots();saveDesign();changed();setText('draft-note',KIND_NAME[k]+' fuera de tu casa: la casa la improvisa de nuevo.')};chip.appendChild(x)}
+    box.appendChild(chip);
+  });
+}
+function resetCanvas(){draft.outline=null;draft.marks=[];pending=[];drawing=null;if(tool==='mark')setTool('cut')}
+function designActive(){
+  var d={wall:design.wall,door:design.door,roof:design.roof,windows:design.windows.slice()};
+  if(ready()){if(draft.kind==='window')d.windows.push(draft);else d[draft.kind]=draft}
+  return (d.wall||d.door||d.roof||d.windows.length)?d:null;
+}
 function syncKinds(){document.querySelectorAll('#kinds .tool').forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-kind')===draft.kind))})}
 function controls(){
   var has=pending.length>0||draft.marks.length>0||ready();
   $('undo').disabled=!has;$('clear').disabled=!has;$('close-outline').disabled=pending.length<3;
+  $('add-to-design').disabled=!ready();$('save-design').disabled=!designCount();
   $('save-piece').disabled=!ready();
   $('submit-piece').disabled=!ready()||!$('consent').checked||submitBusy||JSON.stringify(draft)===submittedHash;
   helpText();
@@ -58,7 +80,8 @@ function paint(){
   $('guide').setAttribute('d',GUIDES[draft.kind]||GUIDES.window);
   document.querySelector('.draw-area').classList.toggle('marking',tool==='mark');
 }
-function preview(){if($('workshop').hidden)return;var r=Casas.render($('preview'),ready()?draft:null,previewSeed);$('preview-bg').style.background=r.background;}
+var previewBackground='#d5d7db';
+function preview(){if($('workshop').hidden)return;var r=Casas.render($('preview'),designActive(),previewSeed);previewBackground=r.background;$('preview-bg').style.background=r.background;}
 function point(e){var b=$('drawing').getBoundingClientRect();return [Math.max(0,Math.min(100,Math.round((e.clientX-b.left)/b.width*1000)/10)),Math.max(0,Math.min(100,Math.round((e.clientY-b.top)/b.height*1000)/10))]}
 function markTotal(){return draft.marks.reduce(function(n,s){return n+s.points.length},0)}
 function perp(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return Math.hypot(p[0]-a[0],p[1]-a[1]);return Math.abs(dy*p[0]-dx*p[1]+b[0]*a[1]-b[1]*a[0])/L}
@@ -133,7 +156,14 @@ function paperName(){$('paper-name').textContent=PAPER_NAMES[PAPERS.indexOf(draf
 PAPERS.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Papel '+PAPER_NAMES[i]);b.setAttribute('aria-pressed',String(c===draft.color));var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){draft.color=c;paperName();document.querySelectorAll('#papers .swatch').forEach(function(el2){el2.setAttribute('aria-pressed',String(el2===b))});paint();changed()};$('papers').appendChild(b)});
 INKS.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Tinta '+INK_NAMES[i]);b.setAttribute('aria-pressed',String(c===ink));var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){ink=c;document.querySelectorAll('#colors .swatch').forEach(function(el2){el2.setAttribute('aria-pressed',String(el2===b))})};$('colors').appendChild(b)});
 $('width').onchange=function(){width=Number(this.value)};
-document.querySelectorAll('#kinds .tool').forEach(function(b){b.onclick=function(){draft.kind=b.getAttribute('data-kind');syncKinds();paint();changed()}});
+document.querySelectorAll('#kinds .tool').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-kind');if(k===draft.kind)return;resetCanvas();draft.kind=k;syncKinds();paint();changed();setText('draft-note','Lienzo nuevo para '+KIND_ART[k]+'. '+(designCount()?'Lo que ya añadiste sigue en tu casa.':''))}});
+$('add-to-design').onclick=function(){
+  if(!ready())return;
+  var piece={v:2,kind:draft.kind,color:draft.color,material:draft.material,outline:draft.outline,marks:draft.marks},note;
+  if(piece.kind==='window'){design.windows.push(piece);note='Ventana añadida a tu casa.';if(design.windows.length>4){design.windows.shift();note='Tu casa ya tenía 4 ventanas: se ha sustituido la más antigua.'}}
+  else{note=KIND_NAME[piece.kind]+(design[piece.kind]?' sustituida en tu casa.':' añadida a tu casa.');design[piece.kind]=piece}
+  resetCanvas();paint();paintSlots();saveDesign();changed();setText('draft-note',note+' Dibuja otra parte cuando quieras.');
+};
 $('material').onchange=function(){draft.material=this.value;paint();changed()};
 $('undo').onclick=function(){
   if(pending.length)pending.pop();
@@ -154,11 +184,12 @@ $('add-shape').onclick=function(){
 $('show-preview').onclick=function(){preview();$('preview-title').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});$('preview-title').focus({preventScroll:true})};
 $('consent').onchange=controls;
 function downloadBlob(blob,name){var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},60000)}
-async function svgPNG(svg,name,status){var copy=svg.cloneNode(true);if(svg.closest('#card')){var bg=document.createElementNS(SVGNS,'rect');bg.setAttribute('width','100');bg.setAttribute('height','100');bg.setAttribute('fill',homeBackground);copy.insertBefore(bg,copy.firstChild)}var markup=new XMLSerializer().serializeToString(copy),blob=new Blob([markup],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);try{var img=new Image();await new Promise(function(resolve,reject){img.onload=resolve;img.onerror=reject;img.src=url});var canvas=document.createElement('canvas');canvas.width=canvas.height=1800;canvas.getContext('2d').drawImage(img,0,0,1800,1800);var png=await new Promise(function(resolve){canvas.toBlob(resolve,'image/png')});if(!png)throw Error();downloadBlob(png,name+'.png');setText(status,'Imagen preparada. Si no se descarga, prueba mantener pulsada la imagen o usa otro navegador.')}catch(e){downloadBlob(blob,name+'.svg');setText(status,'Este navegador no pudo crear el PNG. Se ha preparado el collage en SVG.')}finally{URL.revokeObjectURL(url)}}
+async function svgPNG(svg,name,status,bgc){var copy=svg.cloneNode(true);var fill=bgc||(svg.closest('#card')?homeBackground:null);if(fill){var bg=document.createElementNS(SVGNS,'rect');bg.setAttribute('width','100');bg.setAttribute('height','100');bg.setAttribute('fill',fill);copy.insertBefore(bg,copy.firstChild)}var markup=new XMLSerializer().serializeToString(copy),blob=new Blob([markup],{type:'image/svg+xml'}),url=URL.createObjectURL(blob);try{var img=new Image();await new Promise(function(resolve,reject){img.onload=resolve;img.onerror=reject;img.src=url});var canvas=document.createElement('canvas');canvas.width=canvas.height=1800;canvas.getContext('2d').drawImage(img,0,0,1800,1800);var png=await new Promise(function(resolve){canvas.toBlob(resolve,'image/png')});if(!png)throw Error();downloadBlob(png,name+'.png');setText(status,'Imagen preparada. Si no se descarga, prueba mantener pulsada la imagen o usa otro navegador.')}catch(e){downloadBlob(blob,name+'.svg');setText(status,'Este navegador no pudo crear el PNG. Se ha preparado el collage en SVG.')}finally{URL.revokeObjectURL(url)}}
 $('download').onclick=function(){svgPNG($('card').querySelector('svg'),'casa-de-papel','home-status')};
 $('save-piece').onclick=function(){var holder=document.createElement('div');holder.innerHTML=Casas.pieceSVG(draft);svgPNG(holder.firstChild,'pieza-de-papel','send-status')};
+$('save-design').onclick=function(){var svg=$('preview').querySelector('svg');if(svg)svgPNG(svg,'mi-casa-de-papel','send-status',previewBackground)};
 $('submit-piece').onclick=async function(){if(submitBusy||!$('consent').checked||!ready())return;submitBusy=true;controls();setText('send-status','Enviando tu pieza…');var snapshot=JSON.stringify(draft),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
  try{var r=await fetch(ENDPOINT+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({piece:JSON.parse(snapshot),consent:true,website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id)throw new Error(result.error||'unavailable');submittedHash=snapshot;setText('send-status','Pieza recibida para revisión. Todavía no está publicada. Referencia '+result.id.slice(0,8)+'.');try{localStorage.setItem('casas-last-submission',JSON.stringify({id:result.id,time:Date.now()}))}catch(e){}}
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu pieza sigue aquí; descárgala o prueba otro día.':'No hemos podido confirmar el envío. Tu pieza sigue aquí. Puedes reintentarlo: no se duplicará la misma pieza.';setText('send-status',text)}finally{clearTimeout(timer);submitBusy=false;controls();}};
-window.addEventListener('pagehide',function(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch(e){}});
+window.addEventListener('pagehide',function(){try{localStorage.setItem(KEY,JSON.stringify(draft));saveDesign()}catch(e){}});
 })();
