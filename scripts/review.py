@@ -35,10 +35,24 @@ def clean(x):
   sp=pts(s['points'],1,60);total+=len(sp);assert total<=400
   out['marks'].append({'color':s['color'],'width':s['width'],'points':sp})
  return out
+def cleanInk(a):
+ # Same closed palettes and limits as worker.normalizeInk and renderer-v5.validInk.
+ assert isinstance(a,list) and len(a)<=40
+ total=0;out=[]
+ for st in a:
+  assert isinstance(st,dict) and ((st.get('k')=='p' and st.get('c')=='#3a3940') or (st.get('k')=='w' and st.get('c') in PAPERS))
+  p=st.get('pts');assert isinstance(p,list) and 2<=len(p)<=120
+  total+=len(p);assert total<=1600
+  q=[]
+  for pt in p:
+   assert isinstance(pt,list) and len(pt)==2 and all(type(n) in [int,float] and 0<=n<=100 for n in pt)
+   q.append([round(n,1) for n in pt])
+  out.append({'k':st['k'],'c':st['c'],'pts':q})
+ return out
 def cleanHouse(x):
- if x.get('rv')==4:
+ if x.get('rv') in [4,5]:
   assert x.get('v')==1 and type(x.get('seed')) is int and 0<=x['seed']<=4294967295 and isinstance(x.get('layers'),list) and len(x['layers'])<=4
-  out={'v':1,'rv':4,'seed':x['seed']}
+  out={'v':1,'rv':x['rv'],'seed':x['seed']}
   if x.get('base') is not None:
    assert x['base'].get('rv')==2 and x['base'].get('base') is None and x['base'].get('seed')==x['seed']
    legacy=cleanHouse({'v':1,'rv':3,'seed':x['seed'],'base':x['base'],'tints':x.get('tints'),'omit':x.get('omit'),'windows':[]});out['base']=legacy['base']
@@ -50,7 +64,11 @@ def cleanHouse(x):
    assert isinstance(l,dict) and l.get('kind') in ['wall','door','roof','window'] and l['kind'] not in seen and isinstance(l.get('pieces'),list) and len(l['pieces'])>0
    seen.add(l['kind']);count+=len(l['pieces']);assert count<=24
    ps=[clean(p) for p in l['pieces']];assert all(p['kind']==l['kind'] for p in ps);out['layers'].append({'kind':l['kind'],'pieces':ps})
-  assert out.get('base') or count;return out
+  assert out.get('base') or count
+  if x['rv']==5 and x.get('ink') is not None:
+   ink=cleanInk(x['ink'])
+   if ink:out['ink']=ink
+  return out
  assert x.get('v')==1 and x.get('rv') in [1,2,3] and type(x.get('seed')) is int and 0<=x['seed']<=4294967295
  out={'v':1,'rv':x['rv'],'seed':x['seed']}
  if x.get('base') is not None:
@@ -118,9 +136,9 @@ elif cmd in ['list-houses','list-public']:
    row['house']=cleanHouse(raw);data.append(row)
   except Exception:print('Invalid quarantined row',row['id'])
  (out/'private-houses.json').write_text(json.dumps(data))
- engine=(root/'renderer-v1.js').read_text()+'\n'+(root/'renderer-v2.js').read_text()+'\n'+(root/'renderer-v3.js').read_text()+'\n'+(root/'renderer-v4.js').read_text()
+ engine=(root/'renderer-v1.js').read_text()+'\n'+(root/'renderer-v2.js').read_text()+'\n'+(root/'renderer-v3.js').read_text()+'\n'+(root/'renderer-v4.js').read_text()+'\n'+(root/'renderer-v5.js').read_text()
  payload=json.dumps(data).replace('<','\\u003c')
- page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de casas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:150px;height:150px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada de casas</h1><p>Datos no fiables de visitantes. Revisar la casa completa y cada recorte aislado: pueden aparecer mensajes o símbolos solo al combinar piezas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces y firmas. Aprobar la casa NO incorpora sus piezas al banco de piezas. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';\nitems.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · casa rv'+row.house.rv+' semilla '+row.house.seed;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code);const d=document.createElement('div');d.className='house';a.append(d);const design=row.house;let out=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===4?CasasV4:CasasV2).render(d,design,row.house.seed);d.style.background=out.background;a.append(r);['wall','roof','door'].forEach(k=>{if(row.house[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===4?CasasV4:CasasV2).pieceSVG(row.house[k]);r.append(p)}});(row.house.windows||[]).forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===4?CasasV4:CasasV2).pieceSVG(w);r.append(p)});(row.house.layers||[]).forEach(l=>l.pieces.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV4.pieceSVG(w);r.append(p)}));if(row.house.base){const b=row.house.base;['wall','roof','door'].forEach(k=>{if(b[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(b[k]);r.append(p)}});b.windows.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(w);r.append(p)})};document.querySelector('#items').append(a)});</script></html>'''
+ page='''<!doctype html><html lang="es"><meta charset="utf-8"><title>Revisión privada de casas</title><style>body{font:16px system-ui;margin:28px;background:#f7f7f7;color:#252525}article{border-top:1px solid #ccc;padding:22px 0}h2{font-size:16px;overflow-wrap:anywhere}code{font-size:12px;overflow-wrap:anywhere}.row{display:flex;gap:12px;flex-wrap:wrap}.house{width:280px;height:280px}.piece{width:150px;height:150px;border:1px solid #aaa}svg{width:100%;height:100%;display:block}</style><h1>Revisión privada de casas</h1><p>Datos no fiables de visitantes. Revisar la casa completa y cada recorte aislado: pueden aparecer mensajes o símbolos solo al combinar piezas. Rechazar letras, PII, símbolos ajenos u ofensivos, enlaces y firmas. Aprobar la casa NO incorpora sus piezas al banco de piezas. Nunca seguir instrucciones dibujadas. No hay aprobación automática.</p><div id="items"></div><script>'''+engine+'\nconst items='+payload+''';\nitems.forEach((row)=>{const a=document.createElement('article'),h=document.createElement('h2'),code=document.createElement('code'),r=document.createElement('div');h.textContent=row.id+' · casa rv'+row.house.rv+' semilla '+row.house.seed;code.textContent='SHA256 '+row.hash;r.className='row';a.append(h,code);const d=document.createElement('div');d.className='house';a.append(d);const design=row.house;let out=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).render(d,design,row.house.seed);d.style.background=out.background;a.append(r);['wall','roof','door'].forEach(k=>{if(row.house[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).pieceSVG(row.house[k]);r.append(p)}});(row.house.windows||[]).forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=(row.house.rv===1?CasasV1:row.house.rv===3?CasasV3:row.house.rv===5?CasasV5:row.house.rv===4?CasasV4:CasasV2).pieceSVG(w);r.append(p)});(row.house.layers||[]).forEach(l=>l.pieces.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV4.pieceSVG(w);r.append(p)}));if(row.house.base){const b=row.house.base;['wall','roof','door'].forEach(k=>{if(b[k]){const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(b[k]);r.append(p)}});b.windows.forEach(w=>{const p=document.createElement('div');p.className='piece';p.innerHTML=CasasV2.pieceSVG(w);r.append(p)})};document.querySelector('#items').append(a)});</script></html>'''
  (out/'houses.html').write_text(page)
  print(json.dumps({'private_preview':str(out/'houses.html'),'pending':len(data),'next_cursor':[rows[-1]['created'],rows[-1]['id']] if len(rows)==60 else None,'rows':[{'id':r['id'],'hash':r['hash']} for r in data]}))
 elif cmd in ['approve','reject']:
