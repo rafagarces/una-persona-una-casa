@@ -1,0 +1,65 @@
+/* Dirección UI v2: bordes redondeados concéntricos, navegación inferior flotante, refresh circular. Casas intactas. */
+:root{--r-lg:24px;--r-md:16px;--r-sm:12px;--ink:#252525;--paper:#f7f7f7;--line:#25252526;--glass:rgba(247,247,247,.82)}
+button,.tab,.slot{-webkit-tap-highlight-color:transparent}
+button{border-radius:var(--r-md);border:1px solid var(--line);background:var(--paper);transition:background-color .15s ease,color .15s ease,scale .2s ease-out;text-decoration:none}
+button:hover{background:var(--paper)}
+@media(hover:hover){button:hover{background:#fff}.primary:hover{background:#3a3a3a}}
+button:active{scale:.97}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:var(--r-md)}
+.primary{border-color:var(--ink);background:var(--ink);color:#fff}
+.ghost,.ghost:hover{text-decoration:none}
+.brand,.brand:hover{text-decoration:none;border-radius:var(--r-md)}
+.topbar{padding:10px 12px}
+/* refresh: botón circular con icono de línea, sin subrayado */
+#again{font-size:0;width:56px;height:56px;min-height:56px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);position:relative;color:var(--ink)}
+#again::before{content:"";position:absolute;inset:0;margin:auto;width:24px;height:24px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.6-5.9'/%3E%3Cpath d='M20 4v5h-5'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.6-5.9'/%3E%3Cpath d='M20 4v5h-5'/%3E%3C/svg%3E") center/contain no-repeat;transition:rotate .35s ease-out}
+#again:active::before{rotate:-120deg}
+#again:hover{background:#fff}
+/* navegación: dos botones flotantes redondeados */
+.tabs{left:50%;right:auto;translate:-50% 0;bottom:calc(12px + env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:420px;gap:8px;background:transparent;border:0;padding:0}
+.tabs button{min-height:52px;flex:1;border-radius:26px;border:1px solid var(--line);background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-size:15px;font-weight:600;color:var(--ink)}
+.tabs button:hover{background:var(--glass)}
+.tabs button[aria-current=page]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tabs button[aria-current=page]::after{display:none}
+.tabs button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.home-actions{margin-top:2px}
+.status{border-radius:var(--r-sm);padding:6px 12px}
+/* panel y controles del taller, radios concéntricos (24 = 16 + 8) */
+.panel{border-radius:var(--r-lg);padding:16px;border:1px solid var(--line);margin-bottom:calc(var(--tabs-h) + 36px)}
+.tools button,.kind-picker .tool,.field select{border-radius:var(--r-md)}
+.tool[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.field select{border:1px solid var(--line);background:#fff}
+.swatch{border-radius:50%;border-color:transparent}
+.swatch span{border-radius:50%}
+.swatch[aria-pressed=true]{border-color:var(--ink)}
+.kind-x{border-radius:50%}
+.slot{border-radius:var(--r-sm)}
+.keyboard-tools summary{text-decoration:none}
+.send-box{border-top:0;padding-top:8px}
+.send-box .primary{width:100%;border-radius:var(--r-md)}
+dialog{border-radius:var(--r-lg);border:1px solid var(--line);padding:24px}
+dialog button{border-radius:var(--r-md)}
+/* galería */
+.gallery-grid{gap:12px}
+.gallery-card{border-radius:var(--r-lg);padding:8px;border:1px solid var(--line);background:rgba(247,247,247,.35)}
+a{text-decoration-thickness:1px}
+@media(min-width:761px){
+ .panel{margin-bottom:0}
+ .tabs{left:auto;right:auto;translate:none;position:fixed;top:auto;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;translate:-50% 0;width:auto;max-width:none}
+ .tabs button{flex:none;padding:0 28px;min-height:52px}
+ .tabs button:hover{text-decoration:none}
+ .home{padding-bottom:96px}.page{padding-bottom:110px}
+}
+@media(prefers-reduced-motion:reduce){button,#again::before{transition:none}button:active{scale:1}}
+
+/* visor/carrusel: controles circulares flotantes, la obra no se toca */
+.viewer-btn{width:52px;height:52px;min-width:52px;min-height:52px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--glass);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-size:26px;line-height:1;display:inline-flex;align-items:center;justify-content:center;color:var(--ink)}
+.viewer-btn:hover{text-decoration:none}
+.viewer-count{background:var(--glass);border:1px solid var(--line);border-radius:999px;padding:8px 14px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.viewer-top{padding:12px}
+.viewer-nav{gap:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+#viewer button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+/* el título de sección recibe foco por código al cambiar de vista: sin recuadro; el foco de teclado sigue en botones */
+.page>h1:focus,.page>h1:focus-visible{outline:none}
+/* la sección activa se queda rellena también bajo el cursor */
+.tabs button[aria-current=page],.tabs button[aria-current=page]:hover{background:var(--ink);color:#fff;border-color:var(--ink);text-decoration:none}
