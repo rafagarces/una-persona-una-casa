@@ -34,6 +34,8 @@ function onpage(bg){var n=parseInt(bg.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=
 // Las próximas casas se componen y rasterizan por adelantado en segundo plano (misma técnica que el visor);
 // pulsar ↻ solo cambia un bitmap ya listo. Si la cola está vacía, se renderiza como antes y se repone.
 var homeQueue=[],homePrepRun=0,HOME_AHEAD=2,homeResizeTimer=0,homePrepBusy=false,homeWaiting=false,paperFailed=false,rasterSlow=false,rasterTimed=false,homeWatchdog=0,lastRasterMs=0,probeDone=false;
+try{var rasterNote=localStorage.getItem('casas-raster');if(rasterNote==='slow'){rasterSlow=true;probeDone=true}else if(rasterNote==='fast'){probeDone=true}}catch(e){}
+function noteRaster(v){try{localStorage.setItem('casas-raster',v)}catch(e){}}
 function homePx(){var w=$('card').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function applyHome(seed,background,shared){
  homeSeed=seed;if(previewSeed===null)previewSeed=homeSeed;
@@ -58,7 +60,7 @@ function fresh(){
  // sirve un render directo y no se vuelve a rasterizar en segundo plano en este dispositivo.
  clearTimeout(homeWatchdog);homeWatchdog=setTimeout(function(){
   if(!homeWaiting)return;
-  rasterSlow=true;homeQueue.length=0;homeWaiting=false;
+  rasterSlow=true;noteRaster('slow');homeQueue.length=0;homeWaiting=false;
   var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);
  },4000);
 }
@@ -84,19 +86,25 @@ function prepHome(){
    });
   };
   if(!probeDone){
-   // Sonda previa a un cuarto de tamaño (un diesciséisavo del coste de rasterizado):
-   // si la extrapolación al tamaño real supera el umbral, este dispositivo nunca ejecuta
-   // la rasterización grande y sirve renders directos. Así el primer bloqueo largo no llega.
-   var ppx=Math.max(32,Math.round(px/4));
-   makeBitmap('probe',svg,ppx,true).then(function(pc){
-    probeDone=true;
-    if(lastRasterMs*(px/ppx)*(px/ppx)>500||lastRasterMs>200)rasterSlow=true;
-    if(rasterSlow){
-     homePrepBusy=false;
-     if(homeWaiting&&run===homePrepRun&&currentView==='home'){homeWaiting=false;clearTimeout(homeWatchdog);$('card').replaceChildren(svg);applyHome(seed,r.background,r.shared)}
-     return
-    }
-    full();
+   // Sonda de dos puntos (1/64 y 1/16 del area real) antes de la primera rasterizacion
+   // grande: la diferencia entre ambas separa el coste fijo del coste por pixel, y la
+   // extrapolacion decide si este dispositivo rasteriza en segundo plano o sirve renders
+   // directos. Asi la rasterizacion problematica no se ejecuta nunca a tamano real en
+   // motores lentos; el veredicto se recuerda en localStorage.
+   var p1=Math.max(24,Math.round(px/8)),p2=Math.max(48,Math.round(px/4));
+   makeBitmap('probe',svg,p1,true).then(function(){
+    var t1=lastRasterMs;
+    makeBitmap('probe',svg,p2,true).then(function(){
+     probeDone=true;
+     var t2=lastRasterMs,slope=Math.max(0,(t2-t1)/(p2*p2-p1*p1)),est=t2+slope*(px*px-p2*p2);
+     if(est>500||t2>200){rasterSlow=true;noteRaster('slow')}else noteRaster('fast');
+     if(rasterSlow){
+      homePrepBusy=false;
+      if(homeWaiting&&run===homePrepRun&&currentView==='home'){homeWaiting=false;clearTimeout(homeWatchdog);$('card').replaceChildren(svg);applyHome(seed,r.background,r.shared)}
+      return
+     }
+     full();
+    });
    });
    return
   }
@@ -224,7 +232,7 @@ function makeBitmap(key,svg,px,probe){
       lastRasterMs=performance.now()-t0;
       // Red de seguridad: si la primera rasterización a tamaño real supera el umbral, este
       // dispositivo no vuelve a rasterizar en segundo plano y los refresh van con render directo.
-      if(!probe&&!rasterTimed){rasterTimed=true;if(lastRasterMs>800)rasterSlow=true}
+      if(!probe&&!rasterTimed){rasterTimed=true;if(lastRasterMs>800){rasterSlow=true;noteRaster('slow')}}
       resolve(cv)
     }
     try{
