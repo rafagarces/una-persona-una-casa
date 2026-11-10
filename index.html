@@ -161,6 +161,19 @@ body:has(#viewer[open]){overflow:hidden}
 .viewer-btn:hover{background:transparent;text-decoration:underline;text-underline-offset:4px}
 
 @media(prefers-reduced-motion:reduce){body{transition:none}}
+/* Herramienta y opciones en un solo bloque: material arriba, sus ajustes cuelgan bajo una hairline; acciones fuera */
+.panel .controlbox{background:#fff;border:1px solid #d5d5d5;border-radius:12px;padding:12px}
+.panel .controlbox .tools.modes{margin:0}
+.panel .controlbox .swap #cut-ui{border-top:1px solid #d5d5d5;margin-top:12px;padding-top:12px}
+.panel .controlbox .field{margin:0}
+.panel .controlbox .field+.field{margin-top:10px}
+.panel .controlbox .field .label,.panel .controlbox #paper-name{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.panel .controlbox .kindwrap .tool{font-size:13px;padding:6px 2px;min-height:40px;border-color:#25252533;color:#414141}
+.panel .controlbox .kindwrap .tool[aria-pressed=true]{background:#252525;color:#fff;border-color:#252525}
+@media(max-width:760px){.panel .controlbox .kindwrap .tool{min-height:44px}}
+.panel .tools.actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:8px;margin:16px 0 0}
+.panel .tools.actions button{margin-left:0;margin-right:0}
+.panel .restart{margin-top:16px}
 </style>
 <link rel="stylesheet" href="ui-v2.css?v=20261110-helpers2">
 </head>
@@ -182,13 +195,15 @@ body:has(#viewer[open]){overflow:hidden}
 <h1 id="work-title" tabindex="-1">Crea tu casa</h1>
 <div class="work-grid"><div class="stage" id="stage"><div id="preview" class="art" role="img" aria-label="Tu casa, con las piezas que has recortado"></div><svg id="drawing" viewBox="0 0 100 100" tabindex="0" role="application" aria-labelledby="draw-title draw-desc"><title id="draw-title">Lienzo de capas de cartulina</title><desc id="draw-desc">Toca sobre la casa para añadir vértices uno a uno, y cierra la forma tocando el primer punto o pulsando Cerrar forma. Deshacer quita el último vértice. Con teclado: las flechas mueven el cursor, Intro añade un punto y la tecla C cierra el recorte. Cada recorte se añade a la capa activa en su tamaño y posición, y sigue seleccionado; toca fuera de él para empezar otro. Con las tijeras, rodea una zona para quitar esa parte del papel; lo de fuera se conserva.</desc><g id="strokes"></g></svg></div>
 <div class="panel">
+<div class="controlbox">
 <div class="tools modes" role="group" aria-label="Herramienta"><button type="button" class="tool" id="tool-cut" aria-pressed="true">Papel</button><button type="button" class="tool" id="tool-hole" aria-pressed="false">Tijeras</button><button type="button" class="tool" id="tool-pencil" aria-pressed="false">Lápiz</button><button type="button" class="tool" id="tool-eraser" aria-pressed="false">Goma</button></div>
-<div class="tools actions"><button id="undo" type="button" disabled>Deshacer</button><button id="delete-piece" type="button" hidden>Eliminar recorte</button><button id="close-outline" type="button" hidden>Cerrar forma</button></div>
-<p class="notice" id="legacy-note" hidden>El taller ha cambiado: ahora dibujas el recorte en sí. Tu borrador anterior era de otro tipo de pieza y no se puede aprovechar, pero sigue guardado en este navegador.</p>
 <div class="swap"><div id="cut-ui"><div class="field"><span class="label" id="kind-label">Pieza</span><div id="kinds" class="kind-picker" role="group" aria-labelledby="kind-label"><span class="kindwrap"><button type="button" class="tool" data-kind="wall" aria-pressed="false">Pared</button><button type="button" class="kind-x" data-clear="wall" aria-label="Quitar la capa de pared" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="door" aria-pressed="false">Puerta</button><button type="button" class="kind-x" data-clear="door" aria-label="Quitar la capa de puerta" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="window" aria-pressed="true">Ventana</button><button type="button" class="kind-x" data-clear="window" aria-label="Quitar la capa de ventanas" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="roof" aria-pressed="false">Tejado</button><button type="button" class="kind-x" data-clear="roof" aria-label="Quitar la capa de tejado" hidden>×</button></span></div></div>
 <div class="field"><span class="label" id="paper-label">Color</span> <span id="paper-name" aria-live="polite"></span><div id="papers" class="swatches" role="group" aria-labelledby="paper-label"></div></div>
 </div>
 </div>
+</div>
+<div class="tools actions"><button id="undo" type="button" disabled>Deshacer</button><button id="delete-piece" type="button" hidden>Eliminar recorte</button><button id="close-outline" type="button" hidden>Cerrar forma</button></div>
+<p class="notice" id="legacy-note" hidden>El taller ha cambiado: ahora dibujas el recorte en sí. Tu borrador anterior era de otro tipo de pieza y no se puede aprovechar, pero sigue guardado en este navegador.</p>
 <p class="draft-note" id="draft-note" role="status" aria-live="polite"></p>
 <div class="restart"><button id="clear" type="button" disabled>Empezar de nuevo</button></div>
 <div class="send-box"><label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label><button class="primary" id="submit-house" type="button" disabled>Publicar</button><p class="send-status" id="house-status" role="status" aria-live="polite"></p></div>
