@@ -181,7 +181,7 @@ body:has(#viewer[open]){overflow:hidden}
 </section>
 <section id="workshop" class="view page" hidden aria-labelledby="work-title">
 <h1 id="work-title" tabindex="-1">Crea tu casa</h1>
-<div class="work-grid"><div class="stage" id="stage"><div id="preview" class="art" role="img" aria-label="Tu casa, con las piezas que has recortado"></div><svg id="drawing" viewBox="0 0 100 100" tabindex="0" role="application" aria-labelledby="draw-title draw-desc"><title id="draw-title">Lienzo de capas de cartulina</title><desc id="draw-desc">Toca sobre la casa para añadir vértices uno a uno, y cierra la forma tocando el primer punto o pulsando Cerrar forma. Deshacer quita el último vértice. Con teclado: las flechas mueven el cursor, Intro añade un punto y la tecla C cierra el recorte. Cada recorte se añade a la capa activa en su tamaño y posición, y sigue seleccionado; toca fuera de él para empezar otro. Con las tijeras, arrastra para abrir un hueco o una muesca desde el borde, sin partir el papel.</desc><g id="strokes"></g></svg></div>
+<div class="work-grid"><div class="stage" id="stage"><div id="preview" class="art" role="img" aria-label="Tu casa, con las piezas que has recortado"></div><svg id="drawing" viewBox="0 0 100 100" tabindex="0" role="application" aria-labelledby="draw-title draw-desc"><title id="draw-title">Lienzo de capas de cartulina</title><desc id="draw-desc">Toca sobre la casa para añadir vértices uno a uno, y cierra la forma tocando el primer punto o pulsando Cerrar forma. Deshacer quita el último vértice. Con teclado: las flechas mueven el cursor, Intro añade un punto y la tecla C cierra el recorte. Cada recorte se añade a la capa activa en su tamaño y posición, y sigue seleccionado; toca fuera de él para empezar otro. Con las tijeras, rodea una zona para quitar esa parte del papel; lo de fuera se conserva.</desc><g id="strokes"></g></svg></div>
 <div class="panel">
 <div class="tools modes" role="group" aria-label="Herramienta"><button type="button" class="tool" id="tool-cut" aria-pressed="true">Papel</button><button type="button" class="tool" id="tool-hole" aria-pressed="false">Tijeras</button><button type="button" class="tool" id="tool-pencil" aria-pressed="false">Lápiz</button><button type="button" class="tool" id="tool-eraser" aria-pressed="false">Goma</button></div>
 <div class="tools actions"><button id="undo" type="button" disabled>Deshacer</button><button id="delete-piece" type="button" hidden>Eliminar recorte</button><button id="close-outline" type="button" hidden>Cerrar forma</button></div>
@@ -207,6 +207,6 @@ body:has(#viewer[open]){overflow:hidden}
 <nav class="tabs" aria-label="Secciones"><button id="open-gallery" type="button">Galería</button><button id="open-workshop" type="button">Crea tu casa</button></nav>
 <script src="renderer-v2.js?v=20261109-draw2"></script>
 <script src="renderer-v5.js?v=20261109-draw2"></script>
-<script src="app.js?v=20261110-paleta1"></script>
+<script src="app.js?v=20261110-tijeras5"></script>
 </body>
 </html>

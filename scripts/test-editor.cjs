@@ -59,41 +59,100 @@ console.log('PASS: switching tools keeps the pending contour');
 // Drawing on an empty cartulina is allowed, but publishing still needs at least one cutout; clear-all also clears the drawing.
 h=setup();h.get('tool-pencil').onclick();const d0=h.get('drawing');d0.onpointerdown(ev(10,10));d0.onpointermove(ev(40,40));d0.onpointerup();assert.equal(h.state().ink.length,1);assert.equal(h.state().ink[0].c,'#3a3940');assert.equal(h.get('submit-house').disabled,true);assert.equal(h.get('clear').disabled,false);h.get('clear').onclick();h.get('confirm-clear').onclick();assert.equal(h.state().ink.length,0);
 console.log('PASS: draw on empty cartulina, publish needs a cutout, restart clears ink');
-// Tijeras: interior hole (rv6), edge notch spliced into the outline, clear rejections, hole-aware selection, undo.
+// Anillos iguales salvo rotación/orientación (la resta poligonal no garantiza el punto inicial).
+const ringSame=(a,b)=>a.length===b.length&&[-1,1].some(s=>a.some((_,k)=>a.every((p,i)=>p[0]===b[(k+s*i+b.length*s+ b.length*10)%b.length][0]&&p[1]===b[(k+s*i+b.length*s+b.length*10)%b.length][1])));
+// Tijeras: hueco interior (rv6), selección que cruza el borde, rechazos claros, selección consciente de huecos, undo.
 h=setup();h.kinds[0].onclick();h.draw([[10,20],[60,20],[60,85],[10,85]]);
 h.get('tool-hole').onclick();assert.equal(h.get('cut-ui').style.display,'none');
 h.tap(20,40);h.tap(30,40);h.tap(30,50);assert.equal(h.get('close-outline').hidden,false);h.get('close-outline').onclick();
-let wall=h.state().layers[0].pieces[0];assert.equal(wall.holes.length,1);assert.deepEqual(wall.holes[0],[[20,40],[30,40],[30,50]]);
-h.tap(22,42);h.tap(28,42);h.tap(25,48);h.get('close-outline').onclick();assert.match(h.get('draft-note').textContent,/ya hay un hueco/);assert.equal(h.state().layers[0].pieces[0].holes.length,1);
+let wall=h.state().layers[0].pieces[0];assert.equal(wall.holes.length,1);assert.ok(ringSame(wall.holes[0],[[20,40],[30,40],[30,50]]));
+assert.match(h.get('draft-note').textContent,/Hueco abierto/);
+// Una zona sobre el hueco ya abierto no encuentra papel ahí.
+h.tap(24,42);h.tap(28,42);h.tap(28,45);h.get('close-outline').onclick();assert.match(h.get('draft-note').textContent,/solo cortan/);assert.equal(h.state().layers[0].pieces[0].holes.length,1);
 h.get('undo').onclick();h.get('undo').onclick();h.get('undo').onclick();
 h.tap(5,5);h.tap(8,5);h.tap(5,8);h.get('close-outline').onclick();assert.match(h.get('draft-note').textContent,/solo cortan/);
 h.get('undo').onclick();h.get('undo').onclick();h.get('undo').onclick();
 const dragHole=(pts)=>{const d=h.get('drawing');d.onpointerdown(ev(...pts[0]));for(const p of pts.slice(1))d.onpointermove(ev(...p));d.onpointerup()};
+// Tajo abierto de borde a borde: muesca clásica empalmada en el contorno.
 dragHole([[30,85],[30,70],[35,65],[40,70],[40,85]]);
 wall=h.state().layers[0].pieces[0];assert.equal(wall.outline.length,9);assert.ok(wall.outline.some(p=>p[0]===35&&p[1]===65));assert.equal(wall.holes.length,1);
 await h.get('submit-house').onclick();let sent6=JSON.parse(h.writes.at(-1).body);assert.equal(sent6.house.rv,6);assert.equal(sent6.house.layers[0].pieces[0].holes.length,1);assert.equal(sent6.house.layers[0].pieces[0].outline.length,9);
 h.get('tool-cut').onclick();h.kinds[1].onclick();h.kinds[0].onclick();assert.equal(h.get('delete-piece').hidden,false);h.tap(28,42);assert.equal(h.get('delete-piece').hidden,true);h.tap(28,42);assert.equal(h.get('close-outline').hidden,true);h.get('undo').onclick();
 h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].outline.length,4);assert.equal(h.state().layers[0].pieces[0].holes.length,1);
 h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].holes,undefined);
-console.log('PASS: tijeras: interior hole, overlap/outside rejections, edge notch splice, rv6 publication, hole-aware selection, undo');
+console.log('PASS: tijeras: hueco interior, zona vacía rechazada, muesca de tajo abierto, publicación rv6, selección consciente de huecos, undo');
+// La zona seleccionada se elimina: lo de dentro desaparece y lo de fuera se conserva, aunque cruce el borde.
+{ // punto a punto cruzando el borde izquierdo: mordida exacta de la zona
+ const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.get('tool-hole').onclick();
+ h2.tap(5,25);h2.tap(20,25);h2.tap(20,45);h2.tap(5,45);h2.get('close-outline').onclick();
+ let w2=h2.state().layers[0].pieces[0];assert.equal(w2.holes,undefined);assert.ok(ringSame(w2.outline,[[10,20],[60,20],[60,85],[10,85],[10,45],[20,45],[20,25],[10,25]]));
+ assert.match(h2.get('draft-note').textContent,/Zona eliminada de tu pared/);
+ h2.get('undo').onclick();assert.deepEqual(h2.state().layers[0].pieces[0].outline,[[10,20],[60,20],[60,85],[10,85]]);
+}
+{ // la zona cubre todo el papel: el recorte desaparece
+ const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.get('tool-hole').onclick();
+ h2.tap(5,15);h2.tap(65,15);h2.tap(65,90);h2.tap(5,90);h2.get('close-outline').onclick();
+ assert.equal(h2.state().layers.length,0);assert.match(h2.get('draft-note').textContent,/Recorte eliminado/);
+ h2.get('undo').onclick();assert.equal(h2.state().layers[0].pieces.length,1);
+}
+{ // banda a todo lo ancho: el papel se parte en dos y se conservan ambas partes
+ const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.get('tool-hole').onclick();
+ h2.tap(5,45);h2.tap(65,45);h2.tap(65,60);h2.tap(5,60);h2.get('close-outline').onclick();
+ const ps=h2.state().layers[0].pieces;assert.equal(ps.length,2);
+ assert.ok(ringSame(ps[0].outline,[[10,20],[60,20],[60,45],[10,45]])||ringSame(ps[1].outline,[[10,20],[60,20],[60,45],[10,45]]));
+ assert.ok(ringSame(ps[0].outline,[[10,60],[60,60],[60,85],[10,85]])||ringSame(ps[1].outline,[[10,60],[60,60],[60,85],[10,85]]));
+ assert.equal(ps[0].color,ps[1].color);assert.equal(ps[0].kind,ps[1].kind);
+ h2.get('undo').onclick();assert.equal(h2.state().layers[0].pieces.length,1);assert.deepEqual(h2.state().layers[0].pieces[0].outline,[[10,20],[60,20],[60,85],[10,85]]);
+}
+{ // la zona alcanza dos papeles apilados: corta los dos
+ const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.kinds[2].onclick();h2.draw([[30,40],[55,40],[55,60],[30,60]]);h2.get('tool-hole').onclick();
+ h2.tap(20,35);h2.tap(40,35);h2.tap(40,50);h2.tap(20,50);h2.get('close-outline').onclick();
+ const st=h2.state(),w2=st.layers[0].pieces[0],v2=st.layers[1].pieces[0];
+ assert.equal(w2.holes.length,1);assert.ok(ringSame(w2.holes[0],[[20,35],[40,35],[40,50],[20,50]]));
+ assert.ok(ringSame(v2.outline,[[40,40],[55,40],[55,60],[30,60],[30,50],[40,50]]));
+ assert.match(h2.get('draft-note').textContent,/Zona eliminada de tus papeles/);
+ h2.get('undo').onclick();assert.equal(h2.state().layers[0].pieces[0].holes,undefined);assert.equal(h2.state().layers[1].pieces[0].outline.length,4);
+}
+{ // la zona cubre un hueco y el borde: el hueco se funde con la mordida
+ const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.get('tool-hole').onclick();
+ h2.tap(15,30);h2.tap(25,30);h2.tap(25,40);h2.tap(15,40);h2.get('close-outline').onclick();assert.equal(h2.state().layers[0].pieces[0].holes.length,1);
+ h2.tap(5,25);h2.tap(30,25);h2.tap(30,45);h2.tap(5,45);h2.get('close-outline').onclick();
+ const w2=h2.state().layers[0].pieces[0];assert.equal(w2.holes,undefined);
+ assert.ok(ringSame(w2.outline,[[10,20],[60,20],[60,85],[10,85],[10,45],[30,45],[30,25],[10,25]]));
+}
+{ // arrastre cerrado que cruza el borde: también resta la zona
+ const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.tap(1,1);h2.get('tool-hole').onclick();
+ const pts=[];for(let i=0;i<=60;i++){const t=i/60*2*Math.PI;pts.push([10+Math.cos(t)*15,50+Math.sin(t)*15])}
+ const d2=h2.get('drawing');d2.onpointerdown(ev(...pts[0]));for(const p of pts.slice(1))d2.onpointermove(ev(...p));d2.onpointerup();
+ const w2=h2.state().layers[0].pieces[0];assert.equal(w2.holes,undefined);assert.match(h2.get('draft-note').textContent,/Zona eliminada/);
+ assert.ok(w2.outline.length>4&&w2.outline.every(p=>p[0]>=10&&p[0]<=60&&p[1]>=20&&p[1]<=85));
+ const a0=50*65,a1=w2.outline.reduce((s,p,i,q)=>s+(p[0]*q[(i+1)%q.length][1]-q[(i+1)%q.length][0]*p[1]),0)/2;
+ assert.ok(Math.abs(a1)<a0-100);
+}
+{ // partir con la casa llena (24 recortes) se rechaza sin perder nada
+ const h2=setup();h2.kinds[0].onclick();for(let i=0;i<24;i++)h2.draw();assert.equal(h2.state().layers[0].pieces.length,24);
+ h2.get('tool-hole').onclick();h2.tap(5,45);h2.tap(95,45);h2.tap(95,60);h2.tap(5,60);h2.get('close-outline').onclick();
+ assert.match(h2.get('draft-note').textContent,/24 recortes/);assert.equal(h2.state().layers[0].pieces.length,24);
+}
+console.log('PASS: tijeras restan la zona: borde, cobertura total, partición en dos, dos papeles, fusión con hueco, arrastre cerrado, límite 24');
 // Tijeras con gestos reales de dedo: trazos largos y lentos, ruido, bordes y cortes que apenas rozan.
 h=setup();h.kinds[0].onclick();h.draw([[10,20],[60,20],[60,85],[10,85]]);h.tap(1,1);h.get('tool-hole').onclick();
-// Hueco grande trazado despacio (más de 60 puntos crudos): antes se rechazaba por 'demasiados cambios'.
+// Hueco grande trazado despacio (más de 60 puntos crudos): no se rechaza por 'demasiados cambios'.
 {const pts=[];for(let i=0;i<=130;i++){const t=i/130*2*Math.PI;pts.push([35+Math.cos(t)*15,52+Math.sin(t)*15])}dragHole(pts)}
 wall=h.state().layers[0].pieces[0];assert.equal(wall.holes.length,1);assert.match(h.get('draft-note').textContent,/Hueco abierto/);
-// Hueco pegado al borde con ruido: se apoya en el borde (mordida) en vez de fallar, sin salirse del papel.
+// Zona con ruido pegada al borde: muerde el papel y nunca abulta fuera.
 {const pts=[];for(let i=0;i<=80;i++){const t=i/80*2*Math.PI;pts.push([17.5+Math.cos(t)*8+Math.sin(i*7)*.4,30+Math.sin(t)*8])}dragHole(pts)}
-wall=h.state().layers[0].pieces[0];assert.equal(wall.holes.length,2);assert.ok(wall.holes[1].every(p=>p[0]>=10&&p[0]<=60&&p[1]>=20&&p[1]<=85));
+wall=h.state().layers[0].pieces[0];assert.equal(wall.holes.length,1);assert.ok(wall.outline.length>4);assert.ok(wall.outline.every(p=>p[0]>=10&&p[0]<=60&&p[1]>=20&&p[1]<=85));assert.match(h.get('draft-note').textContent,/Zona eliminada/);
 // Muesca con tembleque que se sale un poco del papel: corta igualmente y nunca abulta fuera.
 {const pts=[];for(let i=0;i<=40;i++){const t=i/40;pts.push([10+Math.sin(i*3)*2,55+t*25+Math.cos(i*5)*1.5])}dragHole(pts)}
 wall=h.state().layers[0].pieces[0];assert.match(h.get('draft-note').textContent,/Muesca recortada/);assert.ok(wall.outline.every(p=>p[0]>=10&&p[0]<=60&&p[1]>=20&&p[1]<=85));assert.ok(wall.outline.length>4);
 // Un trazo sobre el borde que no quita casi papel lo dice, en vez de fingir un corte.
 {const h2=setup();h2.kinds[0].onclick();h2.draw([[10,20],[60,20],[60,85],[10,85]]);h2.tap(1,1);h2.get('tool-hole').onclick();const d2=h2.get('drawing');d2.onpointerdown(ev(10,55));d2.onpointermove(ev(10,65));d2.onpointermove(ev(10,75));d2.onpointerup();assert.match(h2.get('draft-note').textContent,/apenas roza/);assert.equal(h2.state().layers[0].pieces[0].outline.length,4)}
-// Un anillo casi entero fuera del papel se rechaza con la guía correcta.
-{const h3=setup();h3.kinds[0].onclick();h3.draw([[10,20],[60,20],[60,85],[10,85]]);h3.tap(1,1);h3.get('tool-hole').onclick();const pts=[];for(let i=0;i<=40;i++){const t=i/40*2*Math.PI;pts.push([4+Math.cos(t)*8,50+Math.sin(t)*8])}const d3=h3.get('drawing');d3.onpointerdown(ev(...pts[0]));for(const p of pts.slice(1))d3.onpointermove(ev(...p));d3.onpointerup();assert.match(h3.get('draft-note').textContent,/dentro del papel/);assert.equal(h3.state().layers[0].pieces[0].holes,undefined)}
-// El papel que recibe el corte es el que cubre más puntos del trazo, aunque el centroide caiga fuera.
-{const h4=setup();h4.kinds[0].onclick();h4.draw([[10,20],[60,20],[60,85],[10,85]]);h4.tap(1,1);h4.get('tool-hole').onclick();const d4=h4.get('drawing');d4.onpointerdown(ev(10,30));d4.onpointermove(ev(16,45));d4.onpointermove(ev(10,60));d4.onpointerup();assert.match(h4.get('draft-note').textContent,/Muesca recortada/);assert.ok(h4.state().layers[0].pieces[0].outline.length>4)}
-console.log('PASS: tijeras con gestos reales: hueco grande lento, mordida en el borde, muesca con tembleque, apenas roza, anillo fuera, papel por mayoría del trazo');
+// Un anillo casi entero fuera del papel muerde lo poco que pilla dentro.
+{const h3=setup();h3.kinds[0].onclick();h3.draw([[10,20],[60,20],[60,85],[10,85]]);h3.tap(1,1);h3.get('tool-hole').onclick();const pts=[];for(let i=0;i<=40;i++){const t=i/40*2*Math.PI;pts.push([4+Math.cos(t)*8,50+Math.sin(t)*8])}const d3=h3.get('drawing');d3.onpointerdown(ev(...pts[0]));for(const p of pts.slice(1))d3.onpointermove(ev(...p));d3.onpointerup();const w3=h3.state().layers[0].pieces[0];assert.match(h3.get('draft-note').textContent,/Zona eliminada/);assert.ok(w3.outline.length>4);assert.ok(w3.outline.every(p=>p[0]>=10&&p[0]<=60&&p[1]>=20&&p[1]<=85))}
+// Un tajo abierto que no cruza el borde resta la zona que cierra con la cuerda.
+{const h4=setup();h4.kinds[0].onclick();h4.draw([[10,20],[60,20],[60,85],[10,85]]);h4.tap(1,1);h4.get('tool-hole').onclick();const d4=h4.get('drawing');d4.onpointerdown(ev(20,30));d4.onpointermove(ev(26,45));d4.onpointermove(ev(20,60));d4.onpointerup();assert.match(h4.get('draft-note').textContent,/Hueco abierto/);assert.equal(h4.state().layers[0].pieces[0].holes.length,1)}
+console.log('PASS: tijeras con gestos reales: hueco grande lento, zona con ruido en el borde, muesca con tembleque, apenas roza, anillo casi fuera, tajo cerrado por cuerda');
 h=setup();h.kinds[0].onclick();h.draw([[20,20],[80,20],[80,80],[20,80]]);h.get('tool-hole').onclick();
 { // tajo que cruza el papel con extremos FUERA de la zona: debe cortar
  const before=h.state().layers[0].pieces[0].outline.length;

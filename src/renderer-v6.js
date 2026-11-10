@@ -283,21 +283,25 @@
     return svg;
   }
 
+  // La misma sombra de cartulina que llevan las piezas generadas (filtro sh), tambien en los
+  // recortes de la visitante: cada capa sombrea un poco sobre la que tiene debajo.
+  var UID='';
+  function shDefs(){return '<defs><filter id="sh'+UID+'" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".06" dy=".1" stdDeviation=".1" flood-color="#241a30" flood-opacity=".11"/></filter></defs>'}
   function directMarkup(p,id){
     var d='M'+p.outline.map(function(q){return q.join(' ')}).join('L')+'Z',clip='direct-clip-'+id;
     (p.holes||[]).forEach(function(h){d+='M'+h.map(function(q){return q.join(' ')}).join('L')+'Z'});
     var holed=(p.holes||[]).length>0;
-    var o='<path data-direct-piece="'+p.kind+'-'+id+'" d="'+d+'" fill="'+p.color+'"'+(holed?' fill-rule="evenodd"':'')+'/>';
+    var o='<path data-direct-piece="'+p.kind+'-'+id+'" d="'+d+'" fill="'+p.color+'" filter="url(#sh'+UID+')"'+(holed?' fill-rule="evenodd"':'')+'/>';
     if((p.marks||[]).length){o+='<defs><clipPath id="'+clip+'"><path d="'+d+'"'+(holed?' clip-rule="evenodd"':'')+'/></clipPath></defs><g clip-path="url(#'+clip+')">';
       p.marks.forEach(function(m){var points=m.points.length===1?m.points.concat([[m.points[0][0]+.02,m.points[0][1]+.02]]):m.points;o+='<path d="M'+points.map(function(q){return q.join(' ')}).join('L')+'" fill="none" stroke="'+m.color+'" stroke-width="'+(m.width*(p.material==='wax'?1.25:.6))+'" stroke-linecap="round" stroke-linejoin="round" opacity="'+(p.material==='wax'?'.88':'.8')+'"/>'});o+='</g>';
     }return o;
   }
   var renderCount=0;
-  function render(target,piece,fixedSeed){var direct=piece||{},legacy=direct.base||null;ACTIVE=legacy;seed=fixedSeed==null?(Math.random()*4294967296)>>>0:fixedSeed;var markup=house(),uid='-v6-r'+(++renderCount);['sh','wax'].forEach(function(id){markup=markup.split('id="'+id+'"').join('id="'+id+uid+'"').split('url(#'+id+')').join('url(#'+id+uid+')')});target.innerHTML=markup;
+  function render(target,piece,fixedSeed){var direct=piece||{},legacy=direct.base||null;ACTIVE=legacy;seed=fixedSeed==null?(Math.random()*4294967296)>>>0:fixedSeed;var markup=house(),uid='-v6-r'+(++renderCount);UID=uid;['sh','wax'].forEach(function(id){markup=markup.split('id="'+id+'"').join('id="'+id+uid+'"').split('url(#'+id+')').join('url(#'+id+uid+')')});target.innerHTML=markup;
     var g=target.querySelector('#hs'),b=g.getBBox(),k=Math.min(74/b.width,74/b.height)*R(.88,1);
     var cx=b.x+b.width/2,cy=b.y+b.height/2,tx=50+R(-3,3),ty=50+R(-2,4);
     g.setAttribute('transform','translate('+f(tx)+' '+f(ty)+') rotate('+f(R(-2,2))+') scale('+f(k)+') translate('+f(-cx)+' '+f(-cy)+')');g.setAttribute('stroke-width','1');
-    if(!legacy)target.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/></svg>';
+    if(!legacy)target.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'+shDefs()+'<rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/></svg>';
     var om=direct.omit||[],tints=direct.tints||{};
     ['wall','roof','door'].forEach(function(role){if(tints[role])target.querySelectorAll('[data-source-kind="'+role+'"]').forEach(function(n){n.setAttribute('fill',tints[role])})});
     if(tints.windows)target.querySelectorAll('[data-own-window]').forEach(function(n,i){if(tints.windows[i]){var p=n.querySelector('[data-source-kind]');if(p)p.setAttribute('fill',tints.windows[i])}});
@@ -319,5 +323,5 @@
     }
     ACTIVE=null;return {background:PAGE,shared:LAST_SHARED};
   }
-  window.CasasV6={render:render,validInk:validInk,strokeNode:strokeNode,WAXES:WAXES,GRAPHITE:GRAPHITE,setCommunity:function(p){COMMUNITY=p},pieceSVG:function(p){return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'+directMarkup(p,'isolated-'+(++renderCount))+'</svg>'}};
+  window.CasasV6={render:render,validInk:validInk,strokeNode:strokeNode,WAXES:WAXES,GRAPHITE:GRAPHITE,setCommunity:function(p){COMMUNITY=p},pieceSVG:function(p){UID='-v6-r'+(++renderCount);return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'+shDefs()+directMarkup(p,'isolated-'+renderCount)+'</svg>'}};
 })();

@@ -141,7 +141,7 @@ var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261110-paleta1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
+var ASSET_V='20261110-tijeras5',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
 // Veredicto recordado solo si es 'slow' y sigue vigente: mismo build de assets y tamano de
 // rasterizado parecido (+-25%). Un 'fast' nunca se guarda: cada carga vuelve a sondear, asi
 // ninguna estimacion puntual se convierte en permiso permanente para rasterizar en grande.
@@ -314,7 +314,7 @@ function houseSnapshot(){var h={v:1,rv:previewRv(),seed:previewSeed};if(designBg
 var previewBackground='#f7f5f0';function preview(){if($('workshop').hidden)return;var rv=previewRv();if(!rendererAvailable(rv)){rendererReady(rv).then(function(){preview()});return}var r=rendererFor(rv).render($('preview'),JSON.parse(houseSnapshot()),previewSeed);previewBackground=r.background;$('stage').style.background=r.background}
 function resetCanvas(){pending=[];drawing=null;kbUsed=false}
 function changed(){setText('house-status','');sync();preview();saveDesign()}
-var TOOL_HELP={pencil:'Lápiz: arrastra para dibujar sobre la casa. El trazo queda por encima del papel.',hole:'Tijeras: dibuja un contorno dentro de un papel para abrir un hueco, o de borde a borde para recortar una muesca. El papel nunca se parte en dos.',eraser:'Goma: arrastra sobre el dibujo para borrar solo esa zona. No borra el papel.'};
+var TOOL_HELP={pencil:'Lápiz: arrastra para dibujar sobre la casa. El trazo queda por encima del papel.',hole:'Tijeras: rodea una zona para quitar esa parte del papel; lo de fuera se conserva, aunque la zona cruce el borde. Un tajo abierto de borde a borde recorta una muesca.',eraser:'Goma: arrastra sobre el dibujo para borrar solo esa zona. No borra el papel.'};
 function controls(){var p=selectedPiece(),canDelete=p&&selected!=='base';$('undo').disabled=(mode==='cut'&&!pending.length)&&!undoStack.length||mode==='draw'&&!undoStack.length;$('clear').disabled=!pending.length&&!designCount()&&!ink.length;$('delete-piece').hidden=!canDelete;$('close-outline').hidden=pending.length<3;$('submit-house').disabled=!designCount()||houseBusy||!!submittedHouses[houseSnapshot()];setText('work-help',mode==='draw'?(TOOL_HELP[tool]||''):tool==='hole'?(pending.length>=3?'Toca el primer punto para cerrar, o pulsa Cerrar forma.':TOOL_HELP.hole):pending.length>=3?'Toca el primer punto para cerrar, o pulsa Cerrar forma.':p?'Recorte seleccionado. Cambia su papel o elimínalo. Toca fuera de él para empezar otro.':'Toca punto a punto para dibujar el contorno; cada recorte se añade a esta capa.')}
 function paintSlots(){document.querySelectorAll('#kinds .tool').forEach(function(b){var k=b.getAttribute('data-kind'),l=layer(k),n=(l?l.pieces.length:0)+(base&&!omit.includes(k)?k==='window'?base.windows.length:base[k]?1:0:0);b.textContent=KIND_NAME[k]+(n>1?' ×'+n:n?' ✓':'');b.setAttribute('aria-pressed',String(k===draft.kind));document.querySelector('.kind-x[data-clear='+k+']').hidden=!n})}
 function paperName(){var p=selectedPiece();setText('paper-name',PAPER_NAMES[PAPERS.indexOf(p?p.color:draft.color)]||'')}
@@ -322,7 +322,7 @@ function paintSwatches(){var p=selectedPiece(),c=p?p.color:draft.color;document.
 function sync(){paintSlots();paperName();paintSwatches();controls();paint()}
 function el(name,attrs){var n=document.createElementNS(SVGNS,name);for(var k in attrs)n.setAttribute(k,attrs[k]);return n}
 function ptsToD(pts,close){return 'M'+pts.map(function(p){return p.join(' ')}).join('L')+(close?'Z':'')}
-function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(CasasV5.strokeNode(inkLive,true));if(erasing&&erasing.at)g.appendChild(el('circle',{cx:erasing.at[0],cy:erasing.at[1],r:ERASE_R,'class':'eraser-tip'}));return}var p=selectedPiece();if(p&&selected!=='base'){var pd=ptsToD(p.outline,true)+(p.holes||[]).map(function(h){return ptsToD(h,true)}).join('');g.appendChild(el('path',{d:pd,'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:pd,fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3&&tool!=='hole')g.appendChild(el('path',{d:ptsToD(live,true),fill:draft.color,opacity:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));var pn={d:ptsToD(live),'class':'pending'};if(tool==='hole')pn['stroke-dasharray']='1.6 1.4';g.appendChild(el('path',pn))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
+function paint(){var g=$('strokes');g.replaceChildren();if(mode==='draw'){if(inkLive&&inkLive.pts.length>1)g.appendChild(CasasV5.strokeNode(inkLive,true));if(erasing&&erasing.at)g.appendChild(el('circle',{cx:erasing.at[0],cy:erasing.at[1],r:ERASE_R,'class':'eraser-tip'}));return}var p=selectedPiece();if(p&&selected!=='base'){var pd=ptsToD(p.outline,true)+(p.holes||[]).map(function(h){return ptsToD(h,true)}).join('');g.appendChild(el('path',{d:pd,'class':'halo','stroke-width':.8}));g.appendChild(el('path',{d:pd,fill:'none',stroke:'#252525','stroke-width':.25,'stroke-dasharray':'1 1'}))}var live=drawing&&drawing.moved?drawing.pts:pending;if(live.length>=3)g.appendChild(el('path',{d:ptsToD(live,true),fill:tool==='hole'?'#252525':draft.color,opacity:tool==='hole'?.18:.65}));if(live.length){g.appendChild(el('path',{d:ptsToD(live),'class':'halo','stroke-width':1.8}));var pn={d:ptsToD(live),'class':'pending'};if(tool==='hole')pn['stroke-dasharray']='1.6 1.4';g.appendChild(el('path',pn))}if(pending.length>=3)g.appendChild(el('path',{d:ptsToD([pending[pending.length-1],pending[0]]),'class':'closing'}));pending.forEach(function(p,i){g.appendChild(el('circle',{'class':'halo',cx:p[0],cy:p[1],r:1.5,fill:'#fff'}));g.appendChild(el('circle',{'class':'vtx',cx:p[0],cy:p[1],r:.8}));if(i===0&&pending.length>=3)g.appendChild(el('circle',{'class':'vtx-first',cx:p[0],cy:p[1],r:2.6}))});if(kbUsed)g.appendChild(el('path',{d:'M'+(cursor[0]-2)+' '+cursor[1]+'h4M'+cursor[0]+' '+(cursor[1]-2)+'v4','class':'kcursor'}))}
 function point(e){var b=$('drawing').getBoundingClientRect();return [Math.max(0,Math.min(100,Math.round((e.clientX-b.left)/b.width*1000)/10)),Math.max(0,Math.min(100,Math.round((e.clientY-b.top)/b.height*1000)/10))]}
 function perp(p,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return Math.hypot(p[0]-a[0],p[1]-a[1]);return Math.abs(dy*p[0]-dx*p[1]+b[0]*a[1]-b[1]*a[0])/L}
 function simplify(pts,eps){
@@ -334,7 +334,7 @@ function simplify(pts,eps){
   return pts.filter(function(p,i){return keep[i]});
 }
 function area2(pts){var a=0;for(var i=0,j=pts.length-1;i<pts.length;j=i++)a+=pts[j][0]*pts[i][1]-pts[i][0]*pts[j][1];return Math.abs(a/2)}
-function finishOutline(raw){if(tool==='hole'){finishHole(raw);return}var pts=simplify(raw.concat([raw[0]]),.4);pts.pop();if(pts.length>160){drawing=null;paint();controls();setText('draft-note','Ese contorno tiene demasiados cambios. Prueba un trazo más sencillo.');return}pts=pts.map(function(p){return p.map(function(n){return Math.round(n*10)/10})});var xs=pts.map(function(p){return p[0]}),ys=pts.map(function(p){return p[1]});if(pts.length<3||Math.max.apply(null,xs)-Math.min.apply(null,xs)<4||Math.max.apply(null,ys)-Math.min.apply(null,ys)<4||area2(pts)<15){drawing=null;paint();controls();setText('draft-note','Ese recorte no encierra forma suficiente.');return}if(count()>=24){drawing=null;paint();controls();setText('draft-note','Tu casa ya tiene 24 recortes. Puedes deshacer o borrar una capa antes de añadir otro.');return}checkpoint();var l=layer();if(!l){l={kind:draft.kind,pieces:[]};layers.push(l)}l.pieces.push({v:2,kind:draft.kind,color:draft.color,material:draft.material,outline:pts,marks:[]});selected=l.pieces.length-1;resetCanvas();changed();setText('draft-note','Recorte añadido. Sigue seleccionado; los anteriores se conservan.')}
+function finishOutline(raw,isZone){if(tool==='hole'){finishHole(raw,isZone);return}var pts=simplify(raw.concat([raw[0]]),.4);pts.pop();if(pts.length>160){drawing=null;paint();controls();setText('draft-note','Ese contorno tiene demasiados cambios. Prueba un trazo más sencillo.');return}pts=pts.map(function(p){return p.map(function(n){return Math.round(n*10)/10})});var xs=pts.map(function(p){return p[0]}),ys=pts.map(function(p){return p[1]});if(pts.length<3||Math.max.apply(null,xs)-Math.min.apply(null,xs)<4||Math.max.apply(null,ys)-Math.min.apply(null,ys)<4||area2(pts)<15){drawing=null;paint();controls();setText('draft-note','Ese recorte no encierra forma suficiente.');return}if(count()>=24){drawing=null;paint();controls();setText('draft-note','Tu casa ya tiene 24 recortes. Puedes deshacer o borrar una capa antes de añadir otro.');return}checkpoint();var l=layer();if(!l){l={kind:draft.kind,pieces:[]};layers.push(l)}l.pieces.push({v:2,kind:draft.kind,color:draft.color,material:draft.material,outline:pts,marks:[]});selected=l.pieces.length-1;resetCanvas();changed();setText('draft-note','Recorte añadido. Sigue seleccionado; los anteriores se conservan.')}
 function inside(p,pts){var c=false;for(var i=0,j=pts.length-1;i<pts.length;j=i++){var a=pts[i],b=pts[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c}return c}
 // Tijeras: huecos interiores (fill-rule evenodd) y muescas de borde (empalme en el contorno),
 // solo sobre papeles añadidos por la visitante, nunca sobre la casa base generada.
@@ -353,74 +353,175 @@ function spliceNotch(outline,pts){
 }
 function segIntPt(a,b,c,d){var r0=b[0]-a[0],r1=b[1]-a[1],s0=d[0]-c[0],s1=d[1]-c[1],den=r0*s1-r1*s0;if(!den)return null;var t=((c[0]-a[0])*s1-(c[1]-a[1])*s0)/den,u=((c[0]-a[0])*r1-(c[1]-a[1])*r0)/den;if(t<-1e-9||t>1+1e-9||u<-1e-9||u>1+1e-9)return null;t=Math.max(0,Math.min(1,t));return{t:t,pt:[a[0]+t*r0,a[1]+t*r1]}}
 function segInt(a,b,c,d){var s=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),t=(b[0]-a[0])*(d[1]-a[1])-(b[1]-a[1])*(d[0]-a[0]),u=(d[0]-c[0])*(a[1]-c[1])-(d[1]-c[1])*(a[0]-c[0]),v=(d[0]-c[0])*(b[1]-c[1])-(d[1]-c[1])*(b[0]-c[0]);return (s>0)!==(t>0)&&(u>0)!==(v>0)}
-function holesOverlap(a,b){
- if(a.some(function(p){return inside(p,b)}))return true;
- if(b.some(function(p){return inside(p,a)}))return true;
- for(var i=0;i<a.length;i++)for(var j=0;j<b.length;j++)if(segInt(a[i],a[(i+1)%a.length],b[j],b[(j+1)%b.length]))return true;
+// ---- Resta poligonal para las tijeras: la zona seleccionada se quita del papel ----
+function zoneHitsPiece(zone,pc){
+ if(zone.some(function(p){return inPiece(p,pc)}))return true;
+ if(pc.outline.some(function(p){return inside(p,zone)}))return true;
+ if((pc.holes||[]).some(function(h){return h.some(function(p){return inside(p,zone)})}))return true;
+ for(var i=0;i<pc.outline.length;i++)for(var j=0;j<zone.length;j++)if(segInt(pc.outline[i],pc.outline[(i+1)%pc.outline.length],zone[j],zone[(j+1)%zone.length]))return true;
  return false}
-function finishHole(raw){
+function lerpP(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}
+function addSegSplits(s,c){
+ var a=s.a,b=s.b,p=c.a,q=c.b,rx=b[0]-a[0],ry=b[1]-a[1],sx=q[0]-p[0],sy=q[1]-p[1];
+ var den=rx*sy-ry*sx,ax=p[0]-a[0],ay=p[1]-a[1];
+ if(Math.abs(den)>1e-12){
+  var t=(ax*sy-ay*sx)/den,u=(ax*ry-ay*rx)/den;
+  if(t<=-1e-9||t>=1+1e-9||u<=-1e-9||u>=1+1e-9)return; // se cruzan las rectas, no los segmentos
+  if(t>1e-9&&t<1-1e-9)s.ts.push(t);
+  if(u>1e-9&&u<1-1e-9)c.ts.push(u);return}
+ // Paralelas: solo interesan si son colineales (la zona pisa un borde del papel).
+ if(Math.abs(ax*ry-ay*rx)>1e-7*Math.max(1,Math.hypot(rx,ry)))return;
+ var L2=rx*rx+ry*ry;if(L2>1e-18)[p,q].forEach(function(pt){var t=((pt[0]-a[0])*rx+(pt[1]-a[1])*ry)/L2;if(t>1e-9&&t<1-1e-9)s.ts.push(t)});
+ var M2=sx*sx+sy*sy;if(M2>1e-18)[a,b].forEach(function(pt){var u=((pt[0]-p[0])*sx+(pt[1]-p[1])*sy)/M2;if(u>1e-9&&u<1-1e-9)c.ts.push(u)});
+}
+// Caras del arreglo planar papel-zona: se conserva lo que es papel y no cae dentro de la zona.
+// El papel puede quedar en varios fragmentos (la zona lo parte) o desaparecer por completo.
+function polyDiff(outline,holes,zone){
+ var rings=[outline].concat(holes||[]),CLIP=rings.length,segs=[];
+ rings.concat([zone]).forEach(function(ring,r){for(var i=0;i<ring.length;i++)segs.push({r:r,a:ring[i],b:ring[(i+1)%ring.length],ts:[]})});
+ segs.forEach(function(s){if(s.r!==CLIP)segs.forEach(function(c){if(c.r===CLIP)addSegSplits(s,c)})});
+ var ids={},nodes=[],adj={},ue={};
+ function nid(p){var k=Math.round(p[0]*1e7)+','+Math.round(p[1]*1e7),id=ids[k];if(id==null){id=nodes.length;nodes.push(p);ids[k]=id}return id}
+ function edge(u,v){if(u===v)return;var k=u<v?u+'_'+v:v+'_'+u;if(ue[k])return;ue[k]=1;(adj[u]=adj[u]||[]).push(v);(adj[v]=adj[v]||[]).push(u)}
+ segs.forEach(function(s){var ts=[0,1].concat(s.ts).sort(function(a,b){return a-b}).filter(function(t,i,arr){return i===0||t-arr[i-1]>1e-9});for(var k=0;k<ts.length-1;k++)edge(nid(lerpP(s.a,s.b,ts[k])),nid(lerpP(s.a,s.b,ts[k+1])))});
+ Object.keys(adj).forEach(function(u){adj[u].sort(function(a,b){return Math.atan2(nodes[a][1]-nodes[u][1],nodes[a][0]-nodes[u][0])-Math.atan2(nodes[b][1]-nodes[u][1],nodes[b][0]-nodes[u][0])})});
+ var seen={},faces=[];
+ Object.keys(adj).forEach(function(u0){adj[u0].forEach(function(v0){
+  if(seen[u0+'>'+v0])return;
+  var cyc=[],u=+u0,v=v0,guard=0;
+  for(;;){seen[u+'>'+v]=1;cyc.push(u);var arr=adj[v],i=arr.indexOf(u),w=arr[(i-1+arr.length)%arr.length];u=v;v=w;if(u===+u0&&v===v0)break;if(++guard>1e5)return}
+  faces.push(cyc)})});
+ // La cara recorrida queda siempre a la izquierda algebraica del paseo; se sondean hasta 5
+ // aristas y se vota, por si un sondeo cae junto a otra arista.
+ var kept=[];
+ faces.forEach(function(cyc){
+  var pts=cyc.map(function(id){return nodes[id]}),a2=area2(pts);if(a2<1e-4)return;
+  var votes=0,n=0,test=null;
+  for(var i=0;i<cyc.length&&n<5;i++){
+   var A=nodes[cyc[i]],B=nodes[cyc[(i+1)%cyc.length]],dx=B[0]-A[0],dy=B[1]-A[1],L=Math.hypot(dx,dy);if(L<1e-9)continue;
+   var eps=Math.min(.002,L/20),pt=[(A[0]+B[0])/2-dy/L*eps,(A[1]+B[1])/2+dx/L*eps];
+   var keep=inside(pt,outline)&&!(holes||[]).some(function(h){return inside(pt,h)})&&!inside(pt,zone);
+   votes+=keep?1:-1;n++;if(!test)test=pt;
+  }
+  if(n&&votes>0)kept.push({pts:pts,a2:a2,test:test,parent:-1,depth:0});
+ });
+ kept.sort(function(a,b){return b.a2-a.a2});
+ kept.forEach(function(c,i){for(var j=0;j<i;j++)if(kept[j].a2>c.a2&&inside(c.test,kept[j].pts)&&(c.parent<0||kept[j].a2<kept[c.parent].a2))c.parent=j});
+ kept.forEach(function(c){var d=0,j=c.parent;while(j>=0){d++;j=kept[j].parent}c.depth=d});
+ var out=[];
+ kept.forEach(function(c){if(c.depth%2===0)out.push({outer:c.pts,holes:[],idx:kept.indexOf(c)})});
+ kept.forEach(function(c){if(c.depth%2!==1)return;var j=c.parent;while(j>=0&&kept[j].depth%2===1)j=kept[j].parent;var o=j>=0&&out.find(function(o){return o.idx===j});if(o)o.holes.push(c.pts)});
+ return out;
+}
+function cleanCutRing(pts,max){
+ pts=pts.map(function(p){return [Math.max(0,Math.min(100,Math.round(p[0]*10)/10)),Math.max(0,Math.min(100,Math.round(p[1]*10)/10))]});
+ pts=pts.filter(function(p,i){return i===0||Math.hypot(p[0]-pts[i-1][0],p[1]-pts[i-1][1])>=.05});
+ if(pts.length>1&&Math.hypot(pts[0][0]-pts[pts.length-1][0],pts[0][1]-pts[pts.length-1][1])<.05)pts.pop();
+ var eps=.4;while(pts.length>max&&eps<=12){var s=simplify(pts.concat([pts[0]]),eps);s.pop();if(s.length>=pts.length)break;pts=s;eps*=1.5}
+ return pts;
+}
+// La zona rodeada se elimina de todos los papeles añadidos que toca; lo de fuera se conserva.
+function cutZone(raw,bail){
+ var ring=null,eps=.4;
+ for(;;){ring=simplify(raw.concat([raw[0]]),eps);ring.pop();if(ring.length<=60||eps>3)break;eps*=1.5}
+ ring=ring.map(function(p){return [Math.round(p[0]*10)/10,Math.round(p[1]*10)/10]});
+ ring=ring.filter(function(p,q){return q===0||Math.hypot(p[0]-ring[q-1][0],p[1]-ring[q-1][1])>=.05});
+ if(ring.length<3||area2(ring)<2)return bail('Esa zona no encierra forma suficiente.');
+ var hits=[];
+ layers.forEach(function(l,li){l.pieces.forEach(function(pc,j){if(zoneHitsPiece(ring,pc))hits.push({li:li,j:j,pc:pc})})});
+ if(!hits.length)return bail('Las tijeras solo cortan los papeles que has añadido tú.');
+ var results=[],removed=0,frags=0;
+ for(var hi=0;hi<hits.length;hi++){
+  var pc=hits[hi].pc,diff=polyDiff(pc.outline,pc.holes||[],ring),fr=[],keptArea=0,bad=false;
+  for(var di=0;di<diff.length;di++){
+   var outer=cleanCutRing(diff[di].outer,160);
+   if(outer.length<3||area2(outer)<2)continue;
+   if(outer.length>160){bad=true;break}
+   var hs2=[],hpts=0;
+   for(var gi=0;gi<diff[di].holes.length;gi++){var h=cleanCutRing(diff[di].holes[gi],60);if(h.length>=3&&area2(h)>=2){hs2.push(h);hpts+=h.length}}
+   if(hs2.length>6||hpts>200){bad=true;break}
+   fr.push({outer:outer,holes:hs2});keptArea+=area2(outer)-hs2.reduce(function(n,h){return n+area2(h)},0);
+  }
+  if(bad)return bail('Ese corte deja un contorno demasiado complejo. Prueba una zona más sencilla.');
+  removed+=area2(pc.outline)-(pc.holes||[]).reduce(function(n,h){return n+area2(h)},0)-keptArea;frags+=fr.length;
+  results.push(fr);
+ }
+ if(removed<2)return bail('Ese corte apenas roza el papel. Entra un poco más.');
+ if(count()-hits.length+frags>24)return bail('Ese corte dejaría tu casa con más de 24 recortes. Prueba una zona más pequeña.');
+ checkpoint();
+ var removedPieces=0,addedHoles=0,byLayer={};
+ hits.forEach(function(h,i){(byLayer[h.li]=byLayer[h.li]||[]).push({j:h.j,fr:results[i]})});
+ Object.keys(byLayer).forEach(function(li){
+  var l=layers[li],map={};byLayer[li].forEach(function(h){map[h.j]=h});
+  var np=[];
+  l.pieces.forEach(function(pc,j){
+   var h=map[j];
+   if(!h){np.push(pc);return}
+   if(!h.fr.length){removedPieces++;return}
+   if(h.fr[0].holes.length>(pc.holes||[]).length)addedHoles++;
+   pc.outline=h.fr[0].outer;if(h.fr[0].holes.length)pc.holes=h.fr[0].holes;else delete pc.holes;
+   np.push(pc);
+   for(var k=1;k<h.fr.length;k++){var np2={v:2,kind:pc.kind,color:pc.color,material:pc.material,outline:h.fr[k].outer,marks:[]};if(h.fr[k].holes.length)np2.holes=h.fr[k].holes;np.push(np2)}
+  });
+  l.pieces=np;
+ });
+ layers=layers.filter(function(l){return l.pieces.length});
+ selected=null;resetCanvas();changed();
+ var name=KIND_NAME[hits[0].pc.kind].toLowerCase(),msg;
+ if(removedPieces===hits.length&&frags===0)msg=hits.length>1?'Recortes eliminados. Puedes deshacer.':'Recorte eliminado. Puedes deshacer.';
+ else if(hits.length===1&&frags===1&&addedHoles===1)msg='Hueco abierto en tu '+name+'. Puedes deshacer.';
+ else if(hits.length===1)msg='Zona eliminada de tu '+name+'. Puedes deshacer.';
+ else msg='Zona eliminada de tus papeles. Puedes deshacer.';
+ setText('draft-note',msg);
+}
+function finishHole(raw,isZone){
  function bail(msg){drawing=null;paint();controls();setText('draft-note',msg)}
  if(raw.length<3)return bail('Ese corte no encierra forma suficiente.');
  var r10=function(p){return [Math.round(p[0]*10)/10,Math.round(p[1]*10)/10]};
  raw=raw.map(r10);
+ var closedish=Math.hypot(raw[0][0]-raw[raw.length-1][0],raw[0][1]-raw[raw.length-1][1])<=5;
+ // Zona rodeada (arrastre cerrado o punto a punto): lo de dentro se elimina.
+ if(isZone||closedish)return cutZone(raw,bail);
  // El papel objetivo es el que cubre más puntos del trazo (en empate, el más alto): un trazo
  // que empieza o acaba justo en el borde tiene el centroide fuera y antes no encontraba papel.
  var target=null,best=0;
  for(var i=layers.length-1;i>=0;i--){var pcs=layers[i].pieces;for(var j=pcs.length-1;j>=0;j--){var n=0;for(var k=0;k<raw.length;k++)if(inPiece(raw[k],pcs[j]))n++;if(n>best){best=n;target=pcs[j]}}}
  if(!target)return bail('Las tijeras solo cortan los papeles que has añadido tú.');
- var outline=target.outline,hs=target.holes||[];
+ var outline=target.outline;
  // El dedo tiembla: un punto fuera por muy poco se apoya en el borde en vez de anular el corte.
  var clampEdge=function(p){return inside(p,outline)?p:boundaryProj(p,outline).pt};
  var A=boundaryProj(raw[0],outline),B=boundaryProj(raw[raw.length-1],outline);
- var closedish=Math.hypot(raw[0][0]-raw[raw.length-1][0],raw[0][1]-raw[raw.length-1][1])<=5;
- if(!closedish){
-  // Muesca de borde: el trazo va de borde a borde y sustituye el arco más corto. El dedo puede
-  // empezar o acabar FUERA del papel: se recorta el trazo por donde cruza el borde y se corta igual.
-  var doNotch=function(pathPts){
-   var eps=.4,ring2=null;
-   for(;;){ring2=spliceNotch(outline,simplify(pathPts,eps).map(clampEdge)).map(r10);ring2=ring2.filter(function(p,q){return q===0||Math.hypot(p[0]-ring2[q-1][0],p[1]-ring2[q-1][1])>=.05});if(ring2.length<=160||eps>3)break;eps*=1.5}
-   if(ring2.length>160)return bail('Ese corte tiene demasiados cambios. Prueba un trazo más sencillo.');
-   var xs=ring2.map(function(p){return p[0]}),ys=ring2.map(function(p){return p[1]});
-   if(ring2.length<3||Math.max.apply(null,xs)-Math.min.apply(null,xs)<4||Math.max.apply(null,ys)-Math.min.apply(null,ys)<4||area2(ring2)<15)return bail('Ese corte dejaría el papel demasiado pequeño.');
-   var a0=area2(outline);
-   if(area2(ring2)<a0*.6)return bail('Ese corte partiría el papel en dos.');
-   if(a0-area2(ring2)<2)return bail('Ese corte apenas roza el papel. Entra un poco más.');
-   checkpoint();target.outline=ring2;resetCanvas();changed();setText('draft-note','Muesca recortada en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');return;
-  };
-  // Cruces del trazo con el borde, en orden de recorrido.
-  var xi=[];
-  for(var g=0;g<raw.length-1;g++)for(var e=0;e<outline.length;e++){var ip=segIntPt(raw[g],raw[g+1],outline[e],outline[(e+1)%outline.length]);if(ip)xi.push({s:g+ip.t,pt:ip.pt})}
-  xi.sort(function(x,y){return x.s-y.s});
-  xi=xi.filter(function(x,q){return q===0||x.s-xi[q-1].s>1e-6&&Math.hypot(x.pt[0]-xi[q-1].pt[0],x.pt[1]-xi[q-1].pt[1])>.05});
-  if(xi.length>=2){
-   var c0=xi[0],c1=xi[xi.length-1],inner=[];
-   for(var m2=Math.floor(c0.s)+1;m2<=Math.ceil(c1.s)-1;m2++)inner.push(raw[m2]);
-   return doNotch([c0.pt].concat(inner,[c1.pt]));
-  }
-  // Un solo cruce: el trazo empieza dentro y sale del papel (o al revés).
-  if(xi.length===1){
-   var cx=xi[0];
-   if(inside(raw[0],outline))return doNotch(raw.slice(0,Math.floor(cx.s)+1).concat([cx.pt]));
-   if(inside(raw[raw.length-1],outline))return doNotch([cx.pt].concat(raw.slice(Math.ceil(cx.s))));
-  }
-  if(A.d<=4&&B.d<=4)return doNotch(raw);
+ // Tajo abierto de borde a borde: muesca que sustituye el arco de borde más corto.
+ var doNotch=function(pathPts){
+  var eps=.4,ring2=null;
+  for(;;){ring2=spliceNotch(outline,simplify(pathPts,eps).map(clampEdge)).map(r10);ring2=ring2.filter(function(p,q){return q===0||Math.hypot(p[0]-ring2[q-1][0],p[1]-ring2[q-1][1])>=.05});if(ring2.length<=160||eps>3)break;eps*=1.5}
+  if(ring2.length>160)return bail('Ese corte tiene demasiados cambios. Prueba un trazo más sencillo.');
+  var xs=ring2.map(function(p){return p[0]}),ys=ring2.map(function(p){return p[1]});
+  if(ring2.length<3||Math.max.apply(null,xs)-Math.min.apply(null,xs)<4||Math.max.apply(null,ys)-Math.min.apply(null,ys)<4||area2(ring2)<15)return bail('Ese corte dejaría el papel demasiado pequeño.');
+  var a0=area2(outline);
+  if(area2(ring2)<a0*.6)return bail('Ese corte partiría el papel en dos. Rodea la zona que quieres eliminar.');
+  if(a0-area2(ring2)<2)return bail('Ese corte apenas roza el papel. Entra un poco más.');
+  checkpoint();target.outline=ring2;resetCanvas();changed();setText('draft-note','Muesca recortada en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');return;
+ };
+ // Cruces del trazo con el borde, en orden de recorrido.
+ var xi=[];
+ for(var g=0;g<raw.length-1;g++)for(var e=0;e<outline.length;e++){var ip=segIntPt(raw[g],raw[g+1],outline[e],outline[(e+1)%outline.length]);if(ip)xi.push({s:g+ip.t,pt:ip.pt})}
+ xi.sort(function(x,y){return x.s-y.s});
+ xi=xi.filter(function(x,q){return q===0||x.s-xi[q-1].s>1e-6&&Math.hypot(x.pt[0]-xi[q-1].pt[0],x.pt[1]-xi[q-1].pt[1])>.05});
+ if(xi.length>=2){
+  var c0=xi[0],c1=xi[xi.length-1],inner=[];
+  for(var m2=Math.floor(c0.s)+1;m2<=Math.ceil(c1.s)-1;m2++)inner.push(raw[m2]);
+  return doNotch([c0.pt].concat(inner,[c1.pt]));
  }
- // Hueco interior: anillo cerrado dentro de un solo papel; si roza el borde, la mordida queda
- // pegada a él (el evenodd rellenaría de papel lo que sobresaliera, así que se apoya en el borde).
- var eps2=.4,ring=null;
- for(;;){ring=simplify(raw.concat([raw[0]]),eps2);ring.pop();if(ring.length<=60||eps2>3)break;eps2*=1.5}
- if(ring.length<3)return bail('Ese hueco no encierra forma suficiente.');
- if(ring.length>60)return bail('Ese contorno tiene demasiados cambios. Prueba un trazo más sencillo.');
- var maxOut=0;for(var m=0;m<ring.length;m++){if(!inside(ring[m],outline)){var dd=boundaryProj(ring[m],outline).d;if(dd>maxOut)maxOut=dd}}
- if(maxOut>3)return bail('Dibuja el hueco dentro del papel, o empieza y acaba en su borde.');
- ring=ring.map(clampEdge).map(r10);
- ring=ring.filter(function(p,q){return q===0||Math.hypot(p[0]-ring[q-1][0],p[1]-ring[q-1][1])>=.05});
- if(ring.length<3)return bail('Ese hueco no encierra forma suficiente.');
- if(area2(ring)<2)return bail('Ese hueco es demasiado pequeño para verlo.');
- if(hs.length>=6)return bail('Este papel ya tiene 6 huecos.');
- if(hs.reduce(function(n,h){return n+h.length},0)+ring.length>200)return bail('Este papel ya no admite más huecos.');
- if(hs.some(function(h){return holesOverlap(h,ring)}))return bail('Ahí ya hay un hueco.');
- checkpoint();target.holes=hs.concat([ring]);resetCanvas();changed();setText('draft-note','Hueco abierto en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');
+ // Un solo cruce: el trazo empieza dentro y sale del papel (o al revés).
+ if(xi.length===1){
+  var cx=xi[0];
+  if(inside(raw[0],outline))return doNotch(raw.slice(0,Math.floor(cx.s)+1).concat([cx.pt]));
+  if(inside(raw[raw.length-1],outline))return doNotch([cx.pt].concat(raw.slice(Math.ceil(cx.s))));
+ }
+ if(A.d<=4&&B.d<=4)return doNotch(raw);
+ // Trazo abierto sin salida al borde: se cierra con una cuerda y se resta la zona que encierra.
+ return cutZone(raw,bail);
 }
 $('drawing').onpointerdown=function(e){if(e.button&&e.button!==0)return;e.preventDefault();$('drawing').setPointerCapture(e.pointerId);if(mode==='draw'){setText('draft-note','');var q=point(e);if(tool==='eraser'){erasing={did:false};eraseAt(q)}else inkLive={k:'p',c:GRAPHITE,pts:[q]};paint();return}drawing={pts:[point(e)],moved:false};setText('draft-note','')};
 $('drawing').onpointermove=function(e){if(mode==='draw'){if(inkLive){var q=point(e),l=inkLive.pts[inkLive.pts.length-1];if(Math.hypot(l[0]-q[0],l[1]-q[1])>.5&&inkLive.pts.length<500){inkLive.pts.push(q);paint()}}else if(erasing)eraseAt(point(e));return}if(!drawing||tool==='cut')return;var p=point(e),last=drawing.pts[drawing.pts.length-1];if(Math.hypot(last[0]-p[0],last[1]-p[1])>1.2&&drawing.pts.length<600){drawing.moved=true;drawing.pts.push(p);paint()}};
@@ -457,10 +558,10 @@ function eraseAt(p){
  ink=out;preview();
 }
 function endInk(){if(inkLive){var s=inkLive;inkLive=null;var pts=s.pts.length<2?[s.pts[0],[Math.min(100,s.pts[0][0]+.1),s.pts[0][1]]]:simplify(s.pts,.25),eps=.25;while(pts.length>120){eps*=1.5;pts=simplify(s.pts,eps)}if(ink.length>=40||ink.reduce(function(n,x){return n+x.pts.length},0)+pts.length>1600){setText('draft-note','Ya no caben más trazos. Borra alguno con la goma para seguir dibujando.');paint();return}checkpoint();ink=ink.concat([{k:s.k,c:s.c,pts:pts}]);setText('draft-note','');changed();return}if(erasing){var d=erasing.did;erasing=null;if(d)changed();else paint()}}
-function endStroke(){if(mode==='draw'){endInk();return}if(!drawing)return;var d=drawing;drawing=null;if(d.moved&&d.pts.length>=3){finishOutline(d.pts);return}var p=d.pts[0];if(pending.length>=3&&Math.hypot(p[0]-pending[0][0],p[1]-pending[0][1])<=4){finishOutline(pending);return}if(!pending.length&&selected!==null){var l=layer();if(l){for(var i=l.pieces.length-1;i>=0;i--)if(inPiece(p,l.pieces[i])){selected=i;draft.color=l.pieces[i].color;sync();return}}selected=null;sync();return}selected=null;pending.push(p);sync()}
+function endStroke(){if(mode==='draw'){endInk();return}if(!drawing)return;var d=drawing;drawing=null;if(d.moved&&d.pts.length>=3){finishOutline(d.pts,false);return}var p=d.pts[0];if(pending.length>=3&&Math.hypot(p[0]-pending[0][0],p[1]-pending[0][1])<=4){finishOutline(pending,true);return}if(!pending.length&&selected!==null){var l=layer();if(l){for(var i=l.pieces.length-1;i>=0;i--)if(inPiece(p,l.pieces[i])){selected=i;draft.color=l.pieces[i].color;sync();return}}selected=null;sync();return}selected=null;pending.push(p);sync()}
 $('drawing').onpointerup=endStroke;function cancelStroke(){drawing=null;inkLive=null;erasing=null;paint();controls()}$('drawing').onpointercancel=cancelStroke;$('drawing').onlostpointercapture=cancelStroke;
-$('drawing').onkeydown=function(e){if(mode==='draw'){if(e.key==='Escape'&&(inkLive||erasing)){e.preventDefault();cancelStroke()}return}var step=e.shiftKey?8:2,ok=true;if(e.key==='ArrowLeft')cursor[0]=Math.max(0,cursor[0]-step);else if(e.key==='ArrowRight')cursor[0]=Math.min(100,cursor[0]+step);else if(e.key==='ArrowUp')cursor[1]=Math.max(0,cursor[1]-step);else if(e.key==='ArrowDown')cursor[1]=Math.min(100,cursor[1]+step);else if(e.key==='Enter'||e.key===' '){selected=null;pending.push(cursor.slice())}else if(e.key==='c'||e.key==='C'){if(pending.length>=3)finishOutline(pending)}else if(e.key==='Escape')resetCanvas();else ok=false;if(ok){e.preventDefault();kbUsed=true;sync()}};
-$('close-outline').onclick=function(){if(pending.length>=3)finishOutline(pending)};
+$('drawing').onkeydown=function(e){if(mode==='draw'){if(e.key==='Escape'&&(inkLive||erasing)){e.preventDefault();cancelStroke()}return}var step=e.shiftKey?8:2,ok=true;if(e.key==='ArrowLeft')cursor[0]=Math.max(0,cursor[0]-step);else if(e.key==='ArrowRight')cursor[0]=Math.min(100,cursor[0]+step);else if(e.key==='ArrowUp')cursor[1]=Math.max(0,cursor[1]-step);else if(e.key==='ArrowDown')cursor[1]=Math.min(100,cursor[1]+step);else if(e.key==='Enter'||e.key===' '){selected=null;pending.push(cursor.slice())}else if(e.key==='c'||e.key==='C'){if(pending.length>=3)finishOutline(pending,true)}else if(e.key==='Escape')resetCanvas();else ok=false;if(ok){e.preventDefault();kbUsed=true;sync()}};
+$('close-outline').onclick=function(){if(pending.length>=3)finishOutline(pending,true)};
 $('delete-piece').onclick=function(){var l=layer();if(!l||!Number.isInteger(selected)||!selectedPiece())return;checkpoint();l.pieces.splice(selected,1);if(!l.pieces.length)layers=layers.filter(function(x){return x!==l});selected=null;resetCanvas();changed();setText('draft-note','Recorte eliminado. Puedes deshacer.')};
 PAPERS.forEach(function(c,i){var b=document.createElement('button');b.type='button';b.className='swatch';b.setAttribute('aria-label','Papel '+PAPER_NAMES[i]);var span=document.createElement('span');span.style.setProperty('--ink',c);b.appendChild(span);b.onclick=function(){var p=selectedPiece();if(p&&p.color!==c){checkpoint();if(selected==='base'){if(draft.kind==='window'){tints.windows=(tints.windows||[]).slice();tints.windows[base.windows.length-1]=c}else tints[draft.kind]=c}else p.color=c}draft.color=c;changed();setText('draft-note',p?'Papel del recorte seleccionado: '+PAPER_NAMES[i]+'.':'Papel para el próximo recorte: '+PAPER_NAMES[i]+'.')};$('papers').appendChild(b)});
 document.querySelectorAll('#kinds .tool').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-kind');if(k===draft.kind)return;resetCanvas();draft.kind=k;chooseLast();changed()}});
@@ -472,7 +573,7 @@ $('submit-house').onclick=async function(){if(houseBusy||!designCount())return;h
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu casa sigue aquí; prueba otro día.':'No hemos podido confirmar el envío. Tu casa sigue aquí. Puedes reintentarlo.';setText('house-status',text)}finally{clearTimeout(timer);houseBusy=false;controls();}};
 var toolBtns={cut:$('tool-cut'),hole:$('tool-hole'),pencil:$('tool-pencil'),eraser:$('tool-eraser')};
 var CUT_DESC=$('draw-desc').textContent,CUT_TITLE=$('draw-title').textContent;
-function applyMode(){mode=(tool==='pencil'||tool==='eraser')?'draw':'cut';var d=mode==='draw';$('cut-ui').style.display=(d||tool==='hole')?'none':'';$('close-outline').style.display=d?'none':'';$('delete-piece').style.display=d?'none':'';for(var k in toolBtns)toolBtns[k].setAttribute('aria-pressed',String(tool===k));setText('draw-title',d?'Lienzo para dibujar encima de la casa':tool==='hole'?'Lienzo para abrir huecos en el papel':CUT_TITLE);setText('draw-desc',d?(tool==='eraser'?'Arrastra sobre el dibujo para borrar solo la zona tocada. Escape cancela.':'Arrastra para dibujar. Escape cancela el trazo en curso.'):tool==='hole'?'Arrastra para trazar el contorno: entero dentro de un papel para un hueco, o de borde a borde para una muesca, sin partir el papel. Con teclado: las flechas mueven el cursor, Intro añade un punto y la tecla C cierra.':CUT_DESC)}
+function applyMode(){mode=(tool==='pencil'||tool==='eraser')?'draw':'cut';var d=mode==='draw';$('cut-ui').style.display=(d||tool==='hole')?'none':'';$('close-outline').style.display=d?'none':'';$('delete-piece').style.display=d?'none':'';for(var k in toolBtns)toolBtns[k].setAttribute('aria-pressed',String(tool===k));setText('draw-title',d?'Lienzo para dibujar encima de la casa':tool==='hole'?'Lienzo para recortar con las tijeras':CUT_TITLE);setText('draw-desc',d?(tool==='eraser'?'Arrastra sobre el dibujo para borrar solo la zona tocada. Escape cancela.':'Arrastra para dibujar. Escape cancela el trazo en curso.'):tool==='hole'?'Rodea la zona que quieres quitar: arrastra o toca punto a punto y cierra con el botón, la tecla C o tocando el primer punto. La parte del papel que cae dentro se elimina y lo de fuera se conserva. Un tajo abierto de borde a borde recorta una muesca.':CUT_DESC)}
 Object.keys(toolBtns).forEach(function(k){function pick(){if(k===tool)return;tool=k;if(k==='hole')selected=null;drawing=null;inkLive=null;erasing=null;applyMode();sync()}
  toolBtns[k].onclick=pick;
  // En táctil, el primer toque tras un arrastre en el lienzo a veces no genera click; pointerup
