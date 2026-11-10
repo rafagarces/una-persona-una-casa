@@ -62,3 +62,10 @@ for(const bad of [
 ])assert.throws(()=>normalizeHouse({v:1,rv:6,seed:9,layers:[{kind:'wall',pieces:[bad]}]}));
 for(const rv of [4,5])assert.throws(()=>normalizeHouse({v:1,rv,seed:9,layers:[{kind:'wall',pieces:[{...p,holes:[[[20,20],[30,20],[30,30],[20,30]]]}]}]}));
 console.log('PASS rv6: holes normalized, bounded, degenerate/oversized rejected, holes require rv6, ink allowed');
+
+// bg: optional stored page color, rv6 only, hex, lowercased.
+assert.equal(normalizeHouse({...h6,bg:'#A9C3DD'}).bg,'#a9c3dd');
+assert.equal(normalizeHouse(h6).bg,undefined);
+for(const bad of ['#12345','#1234567','red','#zzzzzz',42,{...{}}])assert.throws(()=>normalizeHouse({...h6,bg:bad}));
+for(const rv of [4,5])assert.throws(()=>normalizeHouse({v:1,rv,seed:9,layers:[{kind:'wall',pieces:[p]}],bg:'#a9c3dd'}));
+console.log('PASS bg: rv6-only stored page color, hex validated, lowercased');

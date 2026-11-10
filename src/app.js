@@ -8,6 +8,12 @@ var GRAPHITE=CasasV5.GRAPHITE,mode='cut',tool='cut',ink=[],inkLive=null,erasing=
 var ENDPOINT='https://casas-de-papel-pieces.rafagarces87-store.workers.dev';
 var draft={v:2,kind:'window',color:PAPERS[3],material:'pencil',outline:null,marks:[]};
 var KEY='casas-piece-v2',DESIGN_KEY='casas-design-v1',DESIGN5_KEY='casas-design-v5',layers=[],base=null,tints={},omit=[],selected=null,previewSeed=null,pending=[],drawing=null,cursor=[50,50],kbUsed=false,undoStack=[],houseBusy=false,submittedHouses={},homeBackground='#a9c3dd',homeSeed=0,currentView='home',COMMUNITY_LIST=[];
+// Fondo de la casa en curso: se elige al azar al empezar una casa nueva y no cambia mientras se
+// dibuja ni al recuperar un borrador. Se guarda y se publica con la casa (campo bg, rv6).
+var designBg=null;
+function hslToHex(h,s,l){s/=100;l/=100;var a=s*Math.min(l,1-l),f=function(n){var k=(n+h/30)%12,c=l-a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*c).toString(16).padStart(2,'0')};return '#'+f(0)+f(8)+f(4)}
+function randomPageBg(){return hslToHex(Math.floor(Math.random()*360),25+Math.random()*40,Math.random()<.25?24+Math.random()*16:62+Math.random()*24)}
+function validBg(x){return typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x)?x.toLowerCase():null}
 var KIND_NAME={wall:'Pared',door:'Puerta',window:'Ventana',roof:'Tejado'},KIND_ART={wall:'la pared',door:'la puerta',window:'la ventana',roof:'el tejado'};
 function validPts(a,min,max){return Array.isArray(a)&&a.length>=min&&a.length<=max&&a.every(function(p){return Array.isArray(p)&&p.length===2&&p.every(function(n){return Number.isFinite(n)&&n>=0&&n<=100})})}
 function validHoles(a){return Array.isArray(a)&&a.length<=6&&a.reduce(function(n,h){return n+h.length},0)<=200&&a.every(function(h){return validPts(h,3,60)&&area2(h)>=2})}
@@ -23,13 +29,15 @@ function selectedPiece(){var l=layer(),p=selected==='base'?legacy(draft.kind):l&
 function chooseLast(){var l=layer();selected=l&&l.pieces.length?l.pieces.length-1:legacy(draft.kind)?'base':null;var p=selectedPiece();if(p)draft.color=p.color}
 try{var saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved&&valid(saved))draft=saved;draft.outline=null;draft.marks=[]}catch(e){}
 try{var savedDesign=JSON.parse(localStorage.getItem(DESIGN5_KEY)||'null')||JSON.parse(localStorage.getItem(DESIGN_KEY)||'null');if(savedDesign){
- if((savedDesign.rv===4||savedDesign.rv===5)&&Array.isArray(savedDesign.layers)&&savedDesign.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})})){layers=savedDesign.layers;base=savedDesign.base||null;tints=savedDesign.tints||{};omit=savedDesign.omit||[];previewSeed=savedDesign.seed;if(savedDesign.rv===5&&validInk(savedDesign.ink))ink=savedDesign.ink}
+ if((savedDesign.rv===4||savedDesign.rv===5||savedDesign.rv===6)&&Array.isArray(savedDesign.layers)&&savedDesign.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})})){layers=savedDesign.layers;base=savedDesign.base||null;tints=savedDesign.tints||{};omit=savedDesign.omit||[];previewSeed=savedDesign.seed;designBg=validBg(savedDesign.bg);if((savedDesign.rv===5||savedDesign.rv===6)&&validInk(savedDesign.ink))ink=savedDesign.ink}
  else{var sd=savedDesign.design||savedDesign,converted={v:1,rv:2,seed:1049771,windows:[]};['wall','door','roof'].forEach(function(k){if(valid(sd[k])&&sd[k].kind===k)converted[k]=sd[k]});if(Array.isArray(sd.windows))converted.windows=sd.windows.filter(function(p){return valid(p)&&p.kind==='window'}).slice(0,4);if(converted.wall||converted.door||converted.roof||converted.windows.length){base=converted;previewSeed=1049771;if(!localStorage.getItem('casas-design-rv2-backup'))localStorage.setItem('casas-design-rv2-backup',JSON.stringify(savedDesign))}}
  }}catch(e){}
+// Casa nueva: fondo de color al azar. Un borrador recuperado conserva el suyo.
+if(designBg===null&&!layers.length&&!base&&!ink.length)designBg=randomPageBg();
 try{if(localStorage.getItem('casas-piece-v1'))$('legacy-note').hidden=false}catch(e){}
-function saveDesign(){try{localStorage.setItem(DESIGN5_KEY,JSON.stringify({rv:5,seed:previewSeed,base:base,tints:tints,omit:omit,layers:layers,ink:ink}));localStorage.setItem(KEY,JSON.stringify(draft))}catch(e){setText('draft-note','Este navegador no deja guardar tu casa. No se conservará al salir.')}}
-function checkpoint(){undoStack.push(cp({ink:ink,layers:layers,base:base,tints:tints,omit:omit,selected:selected,kind:draft.kind,color:draft.color}))}
-function restore(s){ink=s.ink||[];layers=s.layers;base=s.base;tints=s.tints;omit=s.omit;selected=s.selected;draft.kind=s.kind;draft.color=s.color}
+function saveDesign(){try{localStorage.setItem(DESIGN5_KEY,JSON.stringify({rv:designBg?6:5,seed:previewSeed,base:base,tints:tints,omit:omit,layers:layers,ink:ink,bg:designBg}));localStorage.setItem(KEY,JSON.stringify(draft))}catch(e){setText('draft-note','Este navegador no deja guardar tu casa. No se conservará al salir.')}}
+function checkpoint(){undoStack.push(cp({ink:ink,layers:layers,base:base,tints:tints,omit:omit,selected:selected,kind:draft.kind,color:draft.color,bg:designBg}))}
+function restore(s){ink=s.ink||[];layers=s.layers;base=s.base;tints=s.tints;omit=s.omit;selected=s.selected;draft.kind=s.kind;draft.color=s.color;designBg=validBg(s.bg)}
 function onpage(bg){var n=parseInt(bg.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;return (.2126*r+.7152*g+.0722*b)/255>.45?'#252525':'#f7f7f7'}
 // Portada: el SVG de cada casa (sombras + grano de papel) es lo caro de rasterizar, sobre todo en iPhone.
 // Las próximas casas se componen y rasterizan por adelantado en segundo plano (misma técnica que el visor);
@@ -133,7 +141,7 @@ var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261110-tijeras3',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
+var ASSET_V='20261110-fondos1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
 // Veredicto recordado solo si es 'slow' y sigue vigente: mismo build de assets y tamano de
 // rasterizado parecido (+-25%). Un 'fast' nunca se guarda: cada carga vuelve a sondear, asi
 // ninguna estimacion puntual se convierte en permiso permanente para rasterizar en grande.
@@ -301,8 +309,8 @@ $('viewer-close').onclick=function(){$('viewer').close()};
 $('viewer').onclose=function(){viewerSet=null;viewerPrefetchRun++;clearTimeout(viewerPrefetchTimer);viewerBitmaps={};viewerBitmapKeys=[];if(viewerReturnFocus&&document.contains(viewerReturnFocus))viewerReturnFocus.focus()};
 $('viewer').onkeydown=function(e){if(e.key==='ArrowLeft'){e.preventDefault();stepViewer(-1)}else if(e.key==='ArrowRight'){e.preventDefault();stepViewer(1)}};
 (function(){var start=null,stage=$('viewer-stage');stage.onpointerdown=function(e){if(e.target.closest('button'))return;start={x:e.clientX,y:e.clientY}};stage.onpointerup=function(e){if(!start)return;var dx=e.clientX-start.x,dy=e.clientY-start.y;start=null;if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.4)stepViewer(dx<0?1:-1)};stage.onpointercancel=function(){start=null}})();
-function previewRv(){return layers.some(function(l){return l.pieces.some(function(p){return p.holes&&p.holes.length})})?6:5}
-function houseSnapshot(){var h={v:1,rv:previewRv(),seed:previewSeed};if(base){h.base=base;if(Object.keys(tints).length)h.tints=tints;if(omit.length)h.omit=omit}h.layers=layers;if(ink.length)h.ink=ink;return JSON.stringify(h)}
+function previewRv(){return designBg||layers.some(function(l){return l.pieces.some(function(p){return p.holes&&p.holes.length})})?6:5}
+function houseSnapshot(){var h={v:1,rv:previewRv(),seed:previewSeed};if(designBg)h.bg=designBg;if(base){h.base=base;if(Object.keys(tints).length)h.tints=tints;if(omit.length)h.omit=omit}h.layers=layers;if(ink.length)h.ink=ink;return JSON.stringify(h)}
 var previewBackground='#f7f5f0';function preview(){if($('workshop').hidden)return;var rv=previewRv();if(!rendererAvailable(rv)){rendererReady(rv).then(function(){preview()});return}var r=rendererFor(rv).render($('preview'),JSON.parse(houseSnapshot()),previewSeed);previewBackground=r.background;$('stage').style.background=r.background}
 function resetCanvas(){pending=[];drawing=null;kbUsed=false}
 function changed(){setText('house-status','');sync();preview();saveDesign()}
@@ -437,7 +445,7 @@ PAPERS.forEach(function(c,i){var b=document.createElement('button');b.type='butt
 document.querySelectorAll('#kinds .tool').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-kind');if(k===draft.kind)return;resetCanvas();draft.kind=k;chooseLast();changed()}});
 document.querySelectorAll('.kind-x').forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-clear');checkpoint();layers=layers.filter(function(l){return l.kind!==k});if(base&&!omit.includes(k))omit.push(k);if(k===draft.kind){selected=null;resetCanvas()}changed();setText('draft-note','Capa retirada. Puedes deshacer.')}});
 $('undo').onclick=function(){if(mode==='cut'&&pending.length)pending.pop();else if(undoStack.length){restore(undoStack.pop());if(mode==='cut')resetCanvas()}changed()};
-$('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){checkpoint();ink=[];layers=[];base=null;tints={};omit=[];selected=null;resetCanvas();$('clear-dialog').close();changed();setText('draft-note','')};
+$('clear').onclick=function(){$('clear-dialog').showModal()};$('cancel-clear').onclick=function(){$('clear-dialog').close()};$('confirm-clear').onclick=function(){checkpoint();ink=[];layers=[];base=null;tints={};omit=[];selected=null;designBg=randomPageBg();resetCanvas();$('clear-dialog').close();changed();setText('draft-note','')};
 $('submit-house').onclick=async function(){if(houseBusy||!designCount())return;houseBusy=true;controls();setText('house-status','Enviando tu casa…');var snapshot=houseSnapshot(),controller=new AbortController(),timer=setTimeout(function(){controller.abort()},12000);
  try{var r=await fetch(ENDPOINT+'/publish-house',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({house:JSON.parse(snapshot),action:'publish',website:$('website').value}),signal:controller.signal});var result=await r.json();if(!r.ok||!result.id||result.status!=='published')throw new Error(result.error||'unavailable');submittedHouses[snapshot]=true;housesBank=[Object.assign(JSON.parse(snapshot),{id:result.id})].concat((housesBank||[]).filter(function(h){return h.id!==result.id}));housesAt=Date.now();show('gallery');setText('house-status','Casa publicada.');}
  catch(e){var text=e.message==='capacity'?'La recepción está llena por ahora. Tu casa sigue aquí; prueba otro día.':'No hemos podido confirmar el envío. Tu casa sigue aquí. Puedes reintentarlo.';setText('house-status',text)}finally{clearTimeout(timer);houseBusy=false;controls();}};

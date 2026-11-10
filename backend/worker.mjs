@@ -45,6 +45,9 @@ export function normalizeHouse(x){
  if(x&&(x.rv===4||x.rv===5||x.rv===6)){
   if(x.v!==1||!Number.isInteger(x.seed)||x.seed<0||x.seed>4294967295||!Array.isArray(x.layers)||x.layers.length>4)throw Error('format');
   const out={v:1,rv:x.rv,seed:x.seed};
+  // Optional page color chosen at draw time (rv6): a hex color kept with the work so the
+  // background survives publication instead of depending on CSS or the seed alone.
+  if(x.bg!=null){if(x.rv!==6||typeof x.bg!=='string'||!/^#[0-9a-f]{6}$/i.test(x.bg))throw Error('format');out.bg=x.bg.toLowerCase()}
   if(x.base!=null){if(x.base.rv!==2||x.base.base!=null||x.base.seed!==x.seed)throw Error('format');const legacy=normalizeHouse({v:1,rv:3,seed:x.seed,base:x.base,tints:x.tints,omit:x.omit,windows:[]});out.base=legacy.base;if(legacy.tints)out.tints=legacy.tints;if(legacy.omit)out.omit=legacy.omit}
   else if(x.tints!=null||x.omit!=null)throw Error('format');
   let count=0;const seen=new Set();

@@ -13,10 +13,19 @@ let layer=h.state().layers[0];assert.equal(layer.pieces.length,2);assert.equal(l
 h.tap(25,40);h.papers()[4].onclick();assert.equal(h.state().layers[0].pieces[0].color,'#5d8266');assert.equal(h.state().layers[0].pieces[1].color,'#4a6a9e');h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].color,'#b04a41');
 // Large door stays in its own coordinates, no slot fit; previous colors stay.
 h.kinds[1].onclick();h.draw([[35,35],[70,35],[70,85],[35,85]]);assert.deepEqual(h.state().layers[1].pieces[0].outline,[[35,35],[70,35],[70,85],[35,85]]);assert.equal(h.state().layers[0].pieces.length,2);
-await h.get('submit-house').onclick();let sent=JSON.parse(h.writes.at(-1).body);assert.equal(sent.house.rv,5);assert.equal(sent.house.layers[0].pieces.length,2);assert.equal(sent.action,'publish');assert.equal(h.get('submit-house').disabled,true);assert.equal(h.get('gallery').hidden,false);assert.equal(h.get('gallery-grid').children.length,31);h.get('gallery-grid').children[0].onclick();assert.equal(h.get('viewer').open,true);assert.equal(h.get('viewer-count').textContent,'1 / 31');h.get('viewer-close').onclick();
+await h.get('submit-house').onclick();let sent=JSON.parse(h.writes.at(-1).body);assert.equal(sent.house.rv,6);assert.match(sent.house.bg,/^#[0-9a-f]{6}$/);assert.equal(sent.house.layers[0].pieces.length,2);assert.equal(sent.action,'publish');assert.equal(h.get('submit-house').disabled,true);assert.equal(h.get('gallery').hidden,false);assert.equal(h.get('gallery-grid').children.length,31);h.get('gallery-grid').children[0].onclick();assert.equal(h.get('viewer').open,true);assert.equal(h.get('viewer-count').textContent,'1 / 31');h.get('viewer-close').onclick();
 console.log('PASS: blank new canvas, bicolor layer, selected older piece recolor+undo, large door exact coordinates, rv5 publication');
 // Remove whole layer, clear-all, undo and reload are non-destructive.
 h.clears[0].onclick();assert.equal(h.state().layers.length,1);h.get('undo').onclick();assert.equal(h.state().layers[0].pieces.length,2);let before=h.state();h.get('clear').onclick();h.get('confirm-clear').onclick();assert.equal(h.state().layers.length,0);h.get('undo').onclick();assert.deepEqual(h.state(),before);h=setup(h.storage);assert.deepEqual(h.state().layers,before.layers);assert.equal(h.state().seed,before.seed);
+{ // fondo: nueva casa -> color al azar persistente; borrador conserva el suyo; Empezar de nuevo lo renueva
+ const h1=setup();const bg1=h1.state().bg;assert.match(bg1,/^#[0-9a-f]{6}$/);assert.equal(h1.state().rv,6);
+ const h1b=setup(h1.storage);assert.equal(h1b.state().bg,bg1);
+ h1.get('clear').onclick();h1.get('confirm-clear').onclick();const bg2=h1.state().bg;assert.match(bg2,/^#[0-9a-f]{6}$/);
+ h1.get('undo').onclick();assert.equal(h1.state().bg,bg1);
+ const h2=setup({'casas-design-v5':JSON.stringify({rv:5,seed:7,layers:[{kind:'wall',pieces:[]}]})});assert.equal(h2.state().bg,null);assert.equal(h2.state().rv,5);
+ const h3=setup({'casas-design-v5':JSON.stringify({rv:6,seed:7,bg:'#A9C3DD',layers:[{kind:'wall',pieces:[]}]})});h3.kinds[0].onclick();h3.draw([[10,10],[40,10],[40,40],[10,40]]);assert.equal(h3.state().bg,'#a9c3dd');assert.equal(h3.state().rv,6);
+ const h4=setup({'casas-design-v5':JSON.stringify({rv:6,seed:7,bg:'red',layers:[{kind:'wall',pieces:[]}]})});h4.kinds[0].onclick();h4.draw([[10,10],[40,10],[40,40],[10,40]]);assert.equal(h4.state().bg,null);assert.equal(h4.state().rv,5);
+ console.log('PASS fondo: aleatorio en casa nueva, persistente, renovado al empezar de nuevo, validado');}
 h.get('open-workshop').onclick();assert.equal(h.get('workshop').hidden,false);h.get('open-gallery').onclick();h.get('open-gallery').onclick();assert.equal(h.get('gallery').hidden,false);assert.equal(h.get('gallery-grid').children.length,30);h.get('brand').onclick();assert.equal(h.get('home').hidden,false);
 console.log('PASS: remove layer/clear/undo/reload preserve pieces+seed; shared stable nav; 30 examples');
 // Invalid drag keeps existing pending polygon and pieces. Cancellation/lost capture adds nothing.

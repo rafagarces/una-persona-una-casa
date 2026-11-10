@@ -306,6 +306,12 @@
     var root=target.querySelector('svg');
     (direct.layers||[]).forEach(function(l){var layer=document.createElementNS('http://www.w3.org/2000/svg','g');layer.setAttribute('data-layer',l.kind);layer.innerHTML=l.pieces.map(function(p,i){return directMarkup(p,renderCount+'-'+i+'-'+l.kind)}).join('');root.appendChild(layer)});
     if(direct.ink&&validInk(direct.ink)){var inkLayer=el('g',{'pointer-events':'none'});direct.ink.forEach(function(s){inkLayer.appendChild(strokeNode(s))});root.appendChild(inkLayer)}
+    // Stored page color: part of the work. It tints the page and, on own-drawn houses, paints the
+    // slightly rotated square behind the pieces, like composed houses have. Seeded jitter keeps it stable.
+    if(direct.bg&&/^#[0-9a-f]{6}$/i.test(direct.bg)){
+      PAGE=direct.bg.toLowerCase();
+      if(!legacy){var bgSq=el('g',{transform:'rotate('+f(R(-1.8,1.8))+' 50 50)'});bgSq.appendChild(el('path',{d:path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)]),fill:PAGE}));root.insertBefore(bgSq,root.childNodes[1]||null)}
+    }
     ACTIVE=null;return {background:PAGE,shared:LAST_SHARED};
   }
   window.CasasV6={render:render,validInk:validInk,strokeNode:strokeNode,WAXES:WAXES,GRAPHITE:GRAPHITE,setCommunity:function(p){COMMUNITY=p},pieceSVG:function(p){return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'+directMarkup(p,'isolated-'+(++renderCount))+'</svg>'}};
