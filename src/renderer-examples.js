@@ -89,7 +89,7 @@
     for(var i=0;i<n;i++){var bx=cx-w/2+w*(i+.5)/n;pts.push([bx-w/(n*2),cy-R(1.5,3)],[bx,cy-R(2.5,4)],[bx+w/(n*2),cy-R(1.5,3)])}
     pts.push([cx+w/2,cy]);return pen(pts,.45,.7)}
   function birds(cx,cy){var o='',n=Math.round(R(2,3));for(var i=0;i<n;i++){var bx=cx+i*R(3,5),by=cy+R(-2,2),s=R(1.2,2);o+=pen([[bx-s,by],[bx,by-s*.8],[bx+s,by]],.4,.8)}return o}
-  function smoke(cx,cy){var pts=[];for(var i=0;i<=12;i++){var a=i*.55,r=.3+i*.22;pts.push([cx+Math.cos(a)*r,cy-i*.9+Math.sin(a)*r*.5])}return pen(pts,.4,.6)}
+  function smoke(cx,cy){var pts=[];for(var i=0;i<=9;i++){var a=i*.55,r=.25+i*.18;pts.push([cx+Math.cos(a)*r,cy-i*.62+Math.sin(a)*r*.5])}return pen(pts,.4,.6)}
   function tree(x,baseY,s,colr){var o=piece(rect(x-s*.14,baseY-s*.7,s*.28,s*.7),colr());
     o+=piece(ngon(x,baseY-s*.95,s*.55,9,.18),colr());return o}
 
@@ -100,7 +100,7 @@
     function col(){var c,t=0;do{c=pick(others);t++}while(used.indexOf(c)>-1&&t<20);used.push(c);return c}
     function colFar(far){var c,t=0;do{c=col();t++}while(dist(c,far)<55&&t<25);return c}
 
-    var out='',penTop='',penBack='';
+    var out='',penTop='',penBack='',extra='';
     var baseY=R(80,84);
     var kind=Math.floor(R(0,6));
     var bodyCol=col(),roofCol=rnd()<.25?'#f6f3ee':colFar(bodyCol),doorCol=colFar(bodyCol);
@@ -108,12 +108,12 @@
     var doorX=null,doorBase=null;
 
     function paperWin(cx,cy,w,h,c){out+=piece(rect(cx-w/2,cy-h/2,w,h),c||col(),.5)}
-    function chimney(x,y,w,h,c){out+=piece(rect(x,y,w,h),c||col(),.8);if(rnd()<.7)penTop+=smoke(x+w/2,y-1)}
+    function chimney(x,y,w,h,c){out+=piece(rect(x,y,w,h),c||col(),.8);if(rnd()<.55)extra+=smoke(x+w/2,y-1)}
 
     if(kind===0){ // casa alta con tejado inclinado (shed)
       var bw=R(20,27),bh=R(30,40),bx=cx0-bw/2,by=baseY-bh,sl=rnd()<.5?1:-1;
       var roof=[[bx-3,by+ (sl>0?5:0)],[bx+bw+3,by+(sl>0?0:5)],[bx+bw+4,by+(sl>0?3:8)+3],[bx-4,by+(sl>0?8:3)+3]];
-      penTop+=hatchIn(roof,sl>0?.5:-.5,R(2.2,3),.3);
+      extra+=hatchIn(roof,sl>0?.5:-.5,R(2.2,3),.3);
       if(rnd()<.45)chimney(sl>0?bx+bw-6:bx+2,by-6,R(3.5,5.5),R(7,11));
       out+=piece(rect(bx,by,bw,bh),bodyCol);
       out+=piece(roof,roofCol);
@@ -141,7 +141,7 @@
       out+=piece(rect(tx,ty,tw,th),bodyCol);
       var apex=[tx+tw*R(.35,.65),ty-R(10,15)];
       var roof=[[tx-3,ty+1],apex,[tx+tw+3,ty+1]];
-      penTop+=hatchIn(roof,rnd()<.5?.55:-.55,R(2.4,3.2),.3);
+      extra+=hatchIn(roof,rnd()<.5?.55:-.55,R(2.4,3.2),.3);
       out+=piece(roof,roofCol);
       out+=piece(rect(x2-2,y2-3,w2+4,3.4),colFar(bodyCol));
       penTop+=frameWin(tx+tw/2,ty+th*R(.2,.32),R(5,6.5),R(5.5,7));
@@ -159,7 +159,7 @@
       for(var i=0;i<=n;i++){var a=Math.PI-Math.PI*i/n;roof.push([bx+bw/2+Math.cos(a)*(bw/2+3),by+2-Math.sin(a)*R(9,13)])}
       roof.push([bx+bw+3,by+2]);
       out+=piece(roof,roofCol);
-      if(rnd()<.5)penTop+=hatchIn(roof,Math.PI/2,R(2.6,3.4),.28);
+      if(rnd()<.5)extra+=hatchIn(roof,Math.PI/2,R(2.6,3.4),.28);
       penTop+=roundWin(bx+bw/2,by+bh*R(.25,.35),R(2.8,3.8));
       var dw=R(7,9.5),dh=R(11,15);doorX=bx+bw/2-dw/2+R(-4,4);doorBase=baseY;
       penTop+=plankDoor(doorX,baseY-dh,dw,dh);
@@ -171,21 +171,21 @@
       out+=piece(rect(bx,by,bw,bh),bodyCol);
       var mid=[bx+bw/2,by+R(2,4)],eaveL=[bx-3,by+R(0,1.5)],eaveR=[bx+bw+3,by+R(0,1.5)],midLow=[bx+bw/2,by+R(6,8.5)];
       var roof=[eaveL,mid,eaveR,[bx+bw+1,by+R(3,4.5)],midLow,[bx-1,by+R(3,4.5)]];
-      penTop+=hatchIn(roof,.9,R(2.4,3.2),.28);
+      extra+=hatchIn(roof,.9,R(2.4,3.2),.28);
       out+=piece(roof,roofCol);
       paperWin(bx+bw*R(.25,.4),by+bh*R(.3,.42),R(3.8,5),R(3.8,5));
       penTop+=frameWin(x2+w2/2,y2+h2*.4,R(4,5.5),R(4.5,5.5));
       var dw=R(6.5,8.5),dh=R(10,13);doorX=bx+bw*R(.6,.75);doorBase=baseY;
       out+=piece(rect(doorX,baseY-dh,dw,dh),doorCol,.5);
       penTop+=pen([[doorX+dw*.72,baseY-dh*.5],[doorX+dw*.76,baseY-dh*.48]],.7);
-      if(rnd()<.4)out+=tree(side>0?bx-R(6,9):bx+bw+R(6,9),baseY,R(6,9),col);
+      if(rnd()<.4)extra+=tree(side>0?bx-R(6,9):bx+bw+R(6,9),baseY,R(6,9),col);
     }
     else { // frontón con buhardilla
       var bw=R(26,34),bh=R(20,27),bx=cx0-bw/2,by=baseY-bh,rh=R(15,22);
       out+=piece(rect(bx,by,bw,bh),bodyCol);
       var apex=[bx+bw/2,by-rh];
       var roof=[[bx-4,by+1],apex,[bx+bw+4,by+1]];
-      penTop+=hatchIn(roof,rnd()<.5?.6:-.6,R(2.4,3.4),.3);
+      extra+=hatchIn(roof,rnd()<.5?.6:-.6,R(2.4,3.4),.3);
       out+=piece(roof,roofCol);
       var dw2=R(4,5.5),dh2=R(4,5.5),dxx=bx+bw/2+R(-3,3),dyy=by-rh*R(.3,.5);
       out+=piece([[dxx-dw2/2-1.5,dyy+dh2/2],[dxx,dyy-dh2/2-2],[dxx+dw2/2+1.5,dyy+dh2/2]],colFar(roofCol),.5);
@@ -211,7 +211,7 @@
      '<filter id="gr" filterUnits="userSpaceOnUse" x="-60" y="-60" width="220" height="220"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="'+gseed+'" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 6.55" result="m"/><feGaussianBlur in="SourceGraphic" stdDeviation=".05" result="b"/><feComposite in="b" in2="m" operator="in"/></filter></defs>'+
      '<g transform="rotate('+f(rotp)+' 50 50)"><rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/>'+
      '<g transform="rotate('+f(rotb)+' 50 50)"><path d="'+path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)])+'" fill="'+bg+'"/>'+
-     '<g id="sc">'+sky+'</g><g id="hs">'+penBack+out+penTop+'</g></g>'+
+     '<g id="sc">'+sky+'</g><g id="hs"><g id="hb">'+penBack+out+penTop+'</g>'+extra+'</g></g>'+
      '<image x="3" y="3" width="94" height="94" href="paper.png" preserveAspectRatio="none"/></g></svg>';
     return svg;
   }
@@ -223,7 +223,7 @@
     ['sh','gr'].forEach(function(id){markup=markup.split('id="'+id+'"').join('id="'+id+uid+'"').split('url(#'+id+')').join('url(#'+id+uid+')')});
     markup=markup.split('id="hx').join('id="hx'+uid+'-').split('url(#hx').join('url(#hx'+uid+'-');
     target.innerHTML=markup;
-    var g=target.querySelector('#hs'),b=g.getBBox(),k=Math.min(72/b.width,66/b.height)*R(.94,1);
+    var g=target.querySelector('#hs'),b=target.querySelector('#hb').getBBox(),k=Math.min(74/b.width,74/b.height)*R(.92,1);
     var cx=b.x+b.width/2,cy=b.y+b.height/2,tx=50+R(-2.5,2.5),ty=LASTGY-.5-k*b.height/2;
     g.setAttribute('transform','translate('+f(tx)+' '+f(ty)+') rotate('+f(R(-1.6,1.6))+') scale('+f(k)+') translate('+f(-cx)+' '+f(-cy)+')');
     return {background:PAGE,shared:false};
