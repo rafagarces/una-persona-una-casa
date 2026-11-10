@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var $=function(id){return document.getElementById(id)},SVGNS='http://www.w3.org/2000/svg';
-var PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a'],PAPER_NAMES=['Crema','Rosa','Rojo','Azul','Verde','Ocre','Gris','Noche'];
+var PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a','#cf4640','#e8873a','#b3bc3d','#2ea87c','#1f9aa8','#5168d8','#8d54c2','#cf4a88'],PAPER_NAMES=['Crema','Rosa','Rojo','Azul','Verde','Ocre','Gris','Noche','Amapola','Albaricoque','Lima','Jade','Pavo real','Azulón','Orquídea','Buganvilla'];
 var INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34'];
 var KINDS=['wall','door','window','roof'];
 var GRAPHITE=CasasV5.GRAPHITE,mode='cut',tool='cut',ink=[],inkLive=null,erasing=null;
@@ -12,7 +12,7 @@ var KEY='casas-piece-v2',DESIGN_KEY='casas-design-v1',DESIGN5_KEY='casas-design-
 // dibuja ni al recuperar un borrador. Se guarda y se publica con la casa (campo bg, rv6).
 var designBg=null;
 function hslToHex(h,s,l){s/=100;l/=100;var a=s*Math.min(l,1-l),f=function(n){var k=(n+h/30)%12,c=l-a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*c).toString(16).padStart(2,'0')};return '#'+f(0)+f(8)+f(4)}
-function randomPageBg(){return hslToHex(Math.floor(Math.random()*360),25+Math.random()*40,Math.random()<.25?24+Math.random()*16:62+Math.random()*24)}
+function randomPageBg(){return hslToHex(Math.floor(Math.random()*360),45+Math.random()*40,Math.random()<.25?26+Math.random()*16:60+Math.random()*22)}
 function validBg(x){return typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x)?x.toLowerCase():null}
 var KIND_NAME={wall:'Pared',door:'Puerta',window:'Ventana',roof:'Tejado'},KIND_ART={wall:'la pared',door:'la puerta',window:'la ventana',roof:'el tejado'};
 function validPts(a,min,max){return Array.isArray(a)&&a.length>=min&&a.length<=max&&a.every(function(p){return Array.isArray(p)&&p.length===2&&p.every(function(n){return Number.isFinite(n)&&n>=0&&n<=100})})}
@@ -141,7 +141,7 @@ var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261110-geometrico1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
+var ASSET_V='20261110-paleta1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
 // Veredicto recordado solo si es 'slow' y sigue vigente: mismo build de assets y tamano de
 // rasterizado parecido (+-25%). Un 'fast' nunca se guarda: cada carga vuelve a sondear, asi
 // ninguna estimacion puntual se convierte en permiso permanente para rasterizar en grande.

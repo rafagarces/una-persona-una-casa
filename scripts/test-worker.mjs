@@ -3,6 +3,7 @@ import worker,{normalize,normalizeHouse} from '../backend/worker.mjs';
 const p={v:2,kind:'wall',color:'#f0e7d8',material:'pencil',outline:[[10,10],[90,10],[90,90],[10,90]],marks:[]};
 const h={v:1,rv:1,seed:1049771,wall:p,windows:[]};
 assert.deepEqual(normalizeHouse(h),h);
+assert.equal(normalize({...p,color:'#1f9aa8'}).color,'#1f9aa8');assert.throws(()=>normalize({...p,color:'#123456'}));
 for(const bad of [{...h,rv:4},{...h,seed:-1},{...h,wall:{...p,kind:'roof'}},{...h,windows:Array(5).fill({...p,kind:'window'})},{v:1,rv:1,seed:0,windows:[]}])assert.throws(()=>normalizeHouse(bad));
 let inserts=0;
 const env={DB:{prepare(sql){return {bind(...args){return {async first(){return null},async run(){assert.match(sql,/intake_queue/);assert.match(sql,/intake_days/);inserts++;return {meta:{changes:1}}}}}}}}};

@@ -1,6 +1,6 @@
 // Anonymous intake only. No public listing, moderation or execution of submitted data.
 const ORIGIN='https://rafagarces.github.io';
-const PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a'];
+const PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a','#cf4640','#e8873a','#b3bc3d','#2ea87c','#1f9aa8','#5168d8','#8d54c2','#cf4a88'];
 const INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34'];
 // Cutout pieces only (v2). The retired stroke format (v1) is rejected, never converted.
 export function normalize(x){
