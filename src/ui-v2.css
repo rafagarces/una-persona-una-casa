@@ -84,12 +84,13 @@ dialog{border-radius:40px;padding:24px}
 .gallery-grid{gap:var(--s-2);margin:0 0 var(--s-3)}
 /* taller */
 .work-grid{gap:var(--s-4)}
-.panel .intro{margin:0 0 var(--s-2)}
-.panel .field:first-of-type{margin-top:var(--s-1)}
+.panel .intro{margin:0 0 var(--s-1)}
+.panel .field:first-of-type{margin-top:0}
 .field{margin:var(--s-1) 0;gap:var(--s-1)}
 .tools,.tools.modes,.tools.actions{gap:var(--s-1);margin:0 0 var(--s-1)}
 .kind-picker{gap:var(--s-1)!important}
-.draft-note{margin:var(--s-2) 0 var(--s-1)}
+.draft-note{margin:var(--s-1) 0}
+#papers .swatch,#waxes .swatch{height:36px;min-height:36px}
 .send-status{margin-top:var(--s-1)}
 .publish-note{margin:var(--s-1) 0 0}
 dialog p{margin:var(--s-1) 0 var(--s-3)}
