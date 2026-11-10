@@ -111,7 +111,8 @@ loadViewerPaper();
 fetch('bank/manifest.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list)&&list.length){bankList=list;bankPrefetch()}}).catch(function(){});
 fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))COMMUNITY_LIST=list.filter(valid).slice(0,600);if(typeof Casas!=='undefined')Casas.setCommunity(COMMUNITY_LIST);CasasV2.setCommunity(COMMUNITY_LIST)}).catch(function(){});
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
-function show(name){if(name===currentView)return;drawing=null;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();saveDesign();preview()}if(name==='gallery'){paintGallery();loadHouses(true)}if($('content'))$('content').scrollTop=0;window.scrollTo(0,0);if(name!=='home'){$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}}
+var viewScroll={};
+function show(name){if(name===currentView)return;drawing=null;if($('content'))viewScroll[currentView]=$('content').scrollTop;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();saveDesign();preview()}if(name==='gallery'){paintGallery();loadHouses(true)}if($('content'))$('content').scrollTop=viewScroll[name]||0;window.scrollTo(0,0);if(name!=='home'){$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
 var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedGallery=null,renderQueue=[],renderScheduled=false;
 function queueRender(fn){renderQueue.push(fn);if(renderScheduled)return;renderScheduled=true;
@@ -141,7 +142,7 @@ var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261110-helpers1',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
+var ASSET_V='20261110-helpers2',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
 // Veredicto recordado solo si es 'slow' y sigue vigente: mismo build de assets y tamano de
 // rasterizado parecido (+-25%). Un 'fast' nunca se guarda: cada carga vuelve a sondear, asi
 // ninguna estimacion puntual se convierte en permiso permanente para rasterizar en grande.
