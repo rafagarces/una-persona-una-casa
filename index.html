@@ -88,11 +88,8 @@ button.gallery-card{border:0;min-height:0;padding:8px;font-weight:400}
 .stage #drawing:focus-visible{outline:3px solid var(--onpage,#252525);outline-offset:4px}
 .panel{background:#f7f7f7;color:#252525;--onpage:#252525;padding:14px 16px;align-self:start;min-width:0}
 .panel p{font-size:14px}
-.panel .intro{margin:0 0 6px;max-width:none}
 .panel .field:first-of-type{margin-top:8px}
 .panel .send-status{min-height:20px;margin-top:6px}
-.publish-note{font-size:12px;color:#595959;text-align:center;margin:6px 0 0;line-height:1.35}
-.intro{margin:8px 0 20px;max-width:49ch}
 .field{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:8px 0}
 .field label,.label{font-size:14px;font-weight:600}
 .field select{min-height:44px;border:1px solid #666;background:#f7f7f7;padding:8px;max-width:100%}
@@ -142,7 +139,6 @@ button.gallery-card{border:0;min-height:0;padding:8px;font-weight:400}
  .work-grid{grid-template-columns:1fr;gap:16px}
  .stage{width:min(100%,640px,calc(100svh - 190px - env(safe-area-inset-bottom)))}
  .panel{padding:14px}
- .panel .intro{font-size:14px;line-height:1.35;margin:0 0 6px}
  .field{margin:4px 0;gap:0}
  .field .label,#paper-name{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
  .tools{margin:6px 0}
@@ -166,7 +162,7 @@ body:has(#viewer[open]){overflow:hidden}
 
 @media(prefers-reduced-motion:reduce){body{transition:none}}
 </style>
-<link rel="stylesheet" href="ui-v2.css?v=20261110-spacing4">
+<link rel="stylesheet" href="ui-v2.css?v=20261110-helpers1">
 </head>
 <body>
 <header class="topbar"><button id="brand" class="brand" type="button">Una persona, una casa</button></header>
@@ -188,15 +184,14 @@ body:has(#viewer[open]){overflow:hidden}
 <div class="panel">
 <div class="tools modes" role="group" aria-label="Herramienta"><button type="button" class="tool" id="tool-cut" aria-pressed="true">Papel</button><button type="button" class="tool" id="tool-hole" aria-pressed="false">Tijeras</button><button type="button" class="tool" id="tool-pencil" aria-pressed="false">Lápiz</button><button type="button" class="tool" id="tool-eraser" aria-pressed="false">Goma</button></div>
 <div class="tools actions"><button id="undo" type="button" disabled>Deshacer</button><button id="delete-piece" type="button" hidden>Eliminar recorte</button><button id="close-outline" type="button" hidden>Cerrar forma</button></div>
-<p class="intro" id="work-help">Dibuja sobre la casa el contorno de la parte elegida.</p>
 <p class="notice" id="legacy-note" hidden>El taller ha cambiado: ahora dibujas el recorte en sí. Tu borrador anterior era de otro tipo de pieza y no se puede aprovechar, pero sigue guardado en este navegador.</p>
 <div class="swap"><div id="cut-ui"><div class="field"><span class="label" id="kind-label">Pieza</span><div id="kinds" class="kind-picker" role="group" aria-labelledby="kind-label"><span class="kindwrap"><button type="button" class="tool" data-kind="wall" aria-pressed="false">Pared</button><button type="button" class="kind-x" data-clear="wall" aria-label="Quitar la capa de pared" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="door" aria-pressed="false">Puerta</button><button type="button" class="kind-x" data-clear="door" aria-label="Quitar la capa de puerta" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="window" aria-pressed="true">Ventana</button><button type="button" class="kind-x" data-clear="window" aria-label="Quitar la capa de ventanas" hidden>×</button></span><span class="kindwrap"><button type="button" class="tool" data-kind="roof" aria-pressed="false">Tejado</button><button type="button" class="kind-x" data-clear="roof" aria-label="Quitar la capa de tejado" hidden>×</button></span></div></div>
 <div class="field"><span class="label" id="paper-label">Color</span> <span id="paper-name" aria-live="polite"></span><div id="papers" class="swatches" role="group" aria-labelledby="paper-label"></div></div>
 </div>
 </div>
-<p class="draft-note" id="draft-note" role="status" aria-live="polite">Tu casa se guarda solo en este navegador.</p>
+<p class="draft-note" id="draft-note" role="status" aria-live="polite"></p>
 <div class="restart"><button id="clear" type="button" disabled>Empezar de nuevo</button></div>
-<div class="send-box"><label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label><button class="primary" id="submit-house" type="button" disabled>Publicar</button><p class="publish-note">Al publicar, tu casa aparecerá en la galería pública.</p><p class="send-status" id="house-status" role="status" aria-live="polite"></p></div>
+<div class="send-box"><label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label><button class="primary" id="submit-house" type="button" disabled>Publicar</button><p class="send-status" id="house-status" role="status" aria-live="polite"></p></div>
 </div></div>
 </section>
 <dialog id="clear-dialog"><h2>¿Empezar de nuevo?</h2><p>Se borrarán todas las capas, sus recortes, sus huecos y el dibujo. Puedes deshacer después.</p><div class="actions"><button id="cancel-clear" type="button">Cancelar</button><button id="confirm-clear" class="primary" type="button">Empezar de nuevo</button></div></dialog>
@@ -209,7 +204,7 @@ body:has(#viewer[open]){overflow:hidden}
 </dialog>
 <nav class="tabs" aria-label="Secciones"><button id="open-gallery" type="button">Galería</button><button id="open-workshop" type="button">Crea tu casa</button></nav>
 <script src="renderer-v2.js?v=20261109-draw2"></script>
-<script src="renderer-v5.js?v=20261110-spacing4"></script>
-<script src="app.js?v=20261110-spacing4"></script>
+<script src="renderer-v5.js?v=20261110-helpers1"></script>
+<script src="app.js?v=20261110-helpers1"></script>
 </body>
 </html>

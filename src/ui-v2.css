@@ -84,7 +84,6 @@ dialog{padding:24px}
 .gallery-grid{gap:var(--s-2);margin:0 0 var(--s-3)}
 /* taller */
 .work-grid{gap:var(--s-4)}
-.panel .intro{margin:0 0 var(--s-1)}
 .panel .field:first-of-type{margin-top:0}
 .field{margin:var(--s-1) 0;gap:var(--s-1)}
 .tools,.tools.modes,.tools.actions{gap:var(--s-1);margin:0 0 var(--s-1)}
@@ -93,7 +92,8 @@ dialog{padding:24px}
 #papers .swatch,#waxes .swatch{height:40px;min-height:40px;min-width:40px}
 @media(max-width:760px){#papers,#waxes{grid-template-columns:repeat(auto-fill,minmax(44px,1fr))}#papers .swatch,#waxes .swatch{height:44px;min-height:44px;min-width:44px}}
 .send-status{margin-top:var(--s-1)}
-.publish-note{margin:var(--s-1) 0 0}
+.panel .send-status:empty{min-height:0;margin-top:0}
+.draft-note:empty{min-height:0;margin-top:0;margin-bottom:0}
 dialog p{margin:var(--s-1) 0 var(--s-3)}
 /* visor */
 .viewer-top{padding:var(--s-2)}
