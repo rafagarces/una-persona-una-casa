@@ -309,8 +309,13 @@
     // Stored page color: part of the work. It tints the page and, on own-drawn houses, paints the
     // slightly rotated square behind the pieces, like composed houses have. Seeded jitter keeps it stable.
     if(direct.bg&&/^#[0-9a-f]{6}$/i.test(direct.bg)){
-      PAGE=direct.bg.toLowerCase();
-      if(!legacy){var bgSq=el('g',{transform:'rotate('+f(R(-1.8,1.8))+' 50 50)'});bgSq.appendChild(el('path',{d:path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)]),fill:PAGE}));root.insertBefore(bgSq,root.childNodes[1]||null)}
+      if(!legacy){
+        // Own-drawn houses: the color lives in the square behind the pieces; the page around the
+        // paper stays neutral, like any other user house (no colored frame around the paper).
+        var bgSq=el('g',{transform:'rotate('+f(R(-1.8,1.8))+' 50 50)'});bgSq.appendChild(el('path',{d:path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)]),fill:direct.bg.toLowerCase()}));root.insertBefore(bgSq,root.childNodes[1]||null);
+        PAGE='#f7f5f0'
+      }
+      else PAGE=direct.bg.toLowerCase()
     }
     ACTIVE=null;return {background:PAGE,shared:LAST_SHARED};
   }
