@@ -22,7 +22,7 @@ button:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radi
 .tabs button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .status{border-radius:var(--r-sm);padding:6px 12px}
 /* panel y controles del taller, radios concéntricos (24 = 16 + 8) */
-.panel{border-radius:var(--r-lg);padding:16px;border:1px solid var(--line)}
+.panel{border-radius:var(--r-lg);padding:14px 16px;border:1px solid var(--line)}
 .tools button,.kind-picker .tool,.field select{border-radius:var(--r-md)}
 .tool[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
 .field select{border:1px solid var(--line);background:#fff}

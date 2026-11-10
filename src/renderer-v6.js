@@ -14,8 +14,16 @@
   // Ink strokes (rv5 rules): graphite pencil with a light halo, wax broken up by fixed-seed noise.
   function strokeNode(s,live){var g=el('g',{'class':'ink'}),d=pathD(s.pts);
     if(s.k==='p'){
-    g.appendChild(el('path',{d:d,fill:'none',stroke:'#f7f5f0','stroke-width':1.15,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.35}));
-    g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.75,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.95}));return g}
+    // Grafito: un solo trazo por gesto, fino, con grano y pequenas variaciones (sin repasos ni linea limpia de rotulador).
+    if(live){g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.5,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.85}));return g}
+    var pxs=s.pts.map(function(p){return p[0]}),pys=s.pts.map(function(p){return p[1]}),px0=Math.min.apply(null,pxs)-2,py0=Math.min.apply(null,pys)-2,pid='ink-pencil-'+(++inkFilters);
+    var pf=el('filter',{id:pid,filterUnits:'userSpaceOnUse',x:px0,y:py0,width:Math.max.apply(null,pxs)-px0+4,height:Math.max.apply(null,pys)-py0+4,'color-interpolation-filters':'sRGB'});
+    pf.appendChild(el('feTurbulence',{type:'fractalNoise',baseFrequency:'0.9 1.3',numOctaves:2,seed:11,result:'n'}));
+    pf.appendChild(el('feDisplacementMap',{'in':'SourceGraphic',in2:'n',scale:.45,xChannelSelector:'R',yChannelSelector:'G',result:'d'}));
+    pf.appendChild(el('feColorMatrix',{'in':'n',type:'matrix',values:'0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .9 .25',result:'m'}));
+    pf.appendChild(el('feComposite',{'in':'d',in2:'m',operator:'in'}));
+    g.appendChild(pf);
+    g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.5,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.85,filter:'url(#'+pid+')'}));return g}
     if(live){g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':2.6,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.92}));return g}
     var xs=s.pts.map(function(p){return p[0]}),ys=s.pts.map(function(p){return p[1]}),x0=Math.min.apply(null,xs)-4,y0=Math.min.apply(null,ys)-4,id='ink-wax-'+(++inkFilters);
     var f=el('filter',{id:id,filterUnits:'userSpaceOnUse',x:x0,y:y0,width:Math.max.apply(null,xs)-x0+4,height:Math.max.apply(null,ys)-y0+4,'color-interpolation-filters':'sRGB'});
@@ -273,7 +281,7 @@
     // background square, slightly rotated, on white paper
     var rotp=R(-1.4,1.4),rotb=R(-1.8,1.8),grainSeed=Math.floor(R(1,99));
     var svg='<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'+
-     '<defs><filter id="sh" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".06" dy=".1" stdDeviation=".1" flood-color="#241a30" flood-opacity=".11"/></filter>'+
+     '<defs><filter id="sh" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".16" dy=".3" stdDeviation=".22" flood-color="#241a30" flood-opacity=".15"/></filter>'+
      '<filter id="wax" filterUnits="userSpaceOnUse" x="-60" y="-60" width="220" height="220"><feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="3" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -10 7.6" result="m"/><feGaussianBlur in="SourceGraphic" stdDeviation=".06" result="b"/><feComposite in="b" in2="m" operator="in"/></filter></defs>'+
      '<g transform="rotate('+f(rotp)+' 50 50)"><rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/>'+
      '<rect x="3" y="3" width="94" height="94" fill="#fff" opacity=".0"/>'+
@@ -286,7 +294,7 @@
   // La misma sombra de cartulina que llevan las piezas generadas (filtro sh), tambien en los
   // recortes de la visitante: cada capa sombrea un poco sobre la que tiene debajo.
   var UID='';
-  function shDefs(){return '<defs><filter id="sh'+UID+'" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".06" dy=".1" stdDeviation=".1" flood-color="#241a30" flood-opacity=".11"/></filter></defs>'}
+  function shDefs(){return '<defs><filter id="sh'+UID+'" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx=".16" dy=".3" stdDeviation=".22" flood-color="#241a30" flood-opacity=".15"/></filter></defs>'}
   function directMarkup(p,id){
     var d='M'+p.outline.map(function(q){return q.join(' ')}).join('L')+'Z',clip='direct-clip-'+id;
     (p.holes||[]).forEach(function(h){d+='M'+h.map(function(q){return q.join(' ')}).join('L')+'Z'});
@@ -316,7 +324,7 @@
       if(!legacy){
         // Own-drawn houses: the color lives in the square behind the pieces; the page around the
         // paper stays neutral, like any other user house (no colored frame around the paper).
-        var bgSq=el('g',{transform:'rotate('+f(R(-1.8,1.8))+' 50 50)'});bgSq.appendChild(el('path',{d:path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)]),fill:direct.bg.toLowerCase()}));root.insertBefore(bgSq,root.childNodes[1]||null);
+        var bgSq=el('g',{transform:'rotate('+f(R(-1.8,1.8))+' 50 50)'});bgSq.appendChild(el('path',{d:path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)]),fill:direct.bg.toLowerCase()}));root.insertBefore(bgSq,root.childNodes[2]||null);
         PAGE='#f7f5f0'
       }
       else PAGE=direct.bg.toLowerCase()

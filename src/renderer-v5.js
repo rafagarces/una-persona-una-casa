@@ -11,9 +11,16 @@
   // Wax: broad stroke whose edge and body are broken up by fixed-seed noise, like pigment on paper tooth.
   function strokeNode(s,live){var g=el('g',{'class':'ink'}),d=pathD(s.pts);
     if(s.k==='p'){
-    // Grafito legible sobre cualquier papel: un halo claro fino lo separa de los papeles oscuros (Noche, Azul).
-    g.appendChild(el('path',{d:d,fill:'none',stroke:'#f7f5f0','stroke-width':1.15,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.35}));
-    g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.75,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.95}));return g}
+    // Grafito: un solo trazo por gesto, fino, con grano y pequenas variaciones (sin repasos ni linea limpia de rotulador).
+    if(live){g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.5,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.85}));return g}
+    var pxs=s.pts.map(function(p){return p[0]}),pys=s.pts.map(function(p){return p[1]}),px0=Math.min.apply(null,pxs)-2,py0=Math.min.apply(null,pys)-2,pid='ink-pencil-'+(++filters);
+    var pf=el('filter',{id:pid,filterUnits:'userSpaceOnUse',x:px0,y:py0,width:Math.max.apply(null,pxs)-px0+4,height:Math.max.apply(null,pys)-py0+4,'color-interpolation-filters':'sRGB'});
+    pf.appendChild(el('feTurbulence',{type:'fractalNoise',baseFrequency:'0.9 1.3',numOctaves:2,seed:11,result:'n'}));
+    pf.appendChild(el('feDisplacementMap',{'in':'SourceGraphic',in2:'n',scale:.45,xChannelSelector:'R',yChannelSelector:'G',result:'d'}));
+    pf.appendChild(el('feColorMatrix',{'in':'n',type:'matrix',values:'0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .9 .25',result:'m'}));
+    pf.appendChild(el('feComposite',{'in':'d',in2:'m',operator:'in'}));
+    g.appendChild(pf);
+    g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':.5,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.85,filter:'url(#'+pid+')'}));return g}
     if(live){g.appendChild(el('path',{d:d,fill:'none',stroke:s.c,'stroke-width':2.6,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.92}));return g}
     var xs=s.pts.map(function(p){return p[0]}),ys=s.pts.map(function(p){return p[1]}),x0=Math.min.apply(null,xs)-4,y0=Math.min.apply(null,ys)-4,id='ink-wax-'+(++filters);
     var f=el('filter',{id:id,filterUnits:'userSpaceOnUse',x:x0,y:y0,width:Math.max.apply(null,xs)-x0+4,height:Math.max.apply(null,ys)-y0+4,'color-interpolation-filters':'sRGB'});

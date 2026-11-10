@@ -15,6 +15,11 @@ h.tap(25,40);h.papers()[4].onclick();assert.equal(h.state().layers[0].pieces[0].
 h.kinds[1].onclick();h.draw([[35,35],[70,35],[70,85],[35,85]]);assert.deepEqual(h.state().layers[1].pieces[0].outline,[[35,35],[70,35],[70,85],[35,85]]);assert.equal(h.state().layers[0].pieces.length,2);
 await h.get('submit-house').onclick();let sent=JSON.parse(h.writes.at(-1).body);assert.equal(sent.house.rv,6);assert.match(sent.house.bg,/^#[0-9a-f]{6}$/);assert.equal(sent.house.layers[0].pieces.length,2);assert.equal(sent.action,'publish');assert.equal(h.get('submit-house').disabled,true);assert.equal(h.get('gallery').hidden,false);assert.equal(h.get('gallery-grid').children.length,31);h.get('gallery-grid').children[0].onclick();assert.equal(h.get('viewer').open,true);assert.equal(h.get('viewer-count').textContent,'1 / 31');h.get('viewer-close').onclick();
 console.log('PASS: blank new canvas, bicolor layer, selected older piece recolor+undo, large door exact coordinates, rv5 publication');
+// After a confirmed publish the canvas resets to a new blank house (the drawing is kept only when the send fails); Undo still restores it, without republish.
+assert.equal(h.state().layers.length,0);assert.equal(h.get('house-status').textContent,'¡Publicada! Tu casa ya está en la galería.');
+h.get('undo').onclick();assert.equal(h.state().layers.length,2);assert.equal(h.get('submit-house').disabled,true);
+h.get('clear').onclick();h.get('confirm-clear').onclick();assert.equal(h.state().layers.length,0);
+h.kinds[0].onclick();h.papers()[2].onclick();h.draw([[10,20],[50,20],[50,85],[10,85]]);h.tap(1,1);h.papers()[3].onclick();h.draw([[50,20],[90,20],[90,85],[50,85]]);h.kinds[1].onclick();h.draw([[35,35],[70,35],[70,85],[35,85]]);
 // Remove whole layer, clear-all, undo and reload are non-destructive.
 h.clears[0].onclick();assert.equal(h.state().layers.length,1);h.get('undo').onclick();assert.equal(h.state().layers[0].pieces.length,2);let before=h.state();h.get('clear').onclick();h.get('confirm-clear').onclick();assert.equal(h.state().layers.length,0);h.get('undo').onclick();assert.deepEqual(h.state(),before);h=setup(h.storage);assert.deepEqual(h.state().layers,before.layers);assert.equal(h.state().seed,before.seed);
 { // fondo: nueva casa -> color al azar persistente; borrador conserva el suyo; Empezar de nuevo lo renueva
@@ -48,7 +53,7 @@ h.get('tool-pencil').onclick();stroke([[5,5],[20,10],[40,30],[60,30]]);assert.eq
 h.get('drawing').onpointerdown(ev(30,30));h.get('drawing').onpointermove(ev(40,40));h.get('drawing').onlostpointercapture();assert.equal(inkOf(h).length,2);
 h.get('tool-eraser').onclick();stroke([[48,85],[52,85]]);assert.equal(inkOf(h).length,1);assert.equal(inkOf(h)[0].k,'p');h.get('undo').onclick();assert.equal(inkOf(h).length,2);h.get('undo').onclick();assert.equal(inkOf(h).length,1);
 await h.get('submit-house').onclick();let inkSent=JSON.parse(h.writes.at(-1).body);assert.equal(inkSent.house.ink.length,1);assert.equal(inkSent.house.rv,5);
-assert.equal(h.state().rv,5);assert.equal(h.storage['casas-design-v1'],undefined);
+assert.equal(h.state().ink.length,0);assert.equal(h.state().rv,6);assert.equal(h.storage['casas-design-v1'],undefined); // lienzo reseteado tras publicar
 // A stale tab that keeps writing the old key can neither erase the ink nor be overwritten: new key is preferred on reload.
 h.storage['casas-design-v1']=JSON.stringify({rv:4,seed:1,layers:[]});const keep=h.storage['casas-design-v5'];stroke([[5,95],[30,95]]);assert.equal(h.storage['casas-design-v1'],JSON.stringify({rv:4,seed:1,layers:[]}));
 {const h2=setup({'casas-design-v5':keep,'casas-design-v1':JSON.stringify({rv:4,seed:1,layers:[]})});assert.equal(h2.state().ink.length,JSON.parse(keep).ink.length);}
@@ -77,6 +82,7 @@ const dragHole=(pts)=>{const d=h.get('drawing');d.onpointerdown(ev(...pts[0]));f
 dragHole([[30,85],[30,70],[35,65],[40,70],[40,85]]);
 wall=h.state().layers[0].pieces[0];assert.equal(wall.outline.length,9);assert.ok(wall.outline.some(p=>p[0]===35&&p[1]===65));assert.equal(wall.holes.length,1);
 await h.get('submit-house').onclick();let sent6=JSON.parse(h.writes.at(-1).body);assert.equal(sent6.house.rv,6);assert.equal(sent6.house.layers[0].pieces[0].holes.length,1);assert.equal(sent6.house.layers[0].pieces[0].outline.length,9);
+h.get('undo').onclick(); // recupera la casa tal como se publicó (el lienzo se resetea tras publicar)
 h.get('tool-cut').onclick();h.kinds[1].onclick();h.kinds[0].onclick();assert.equal(h.get('delete-piece').hidden,false);h.tap(28,42);assert.equal(h.get('delete-piece').hidden,true);h.tap(28,42);assert.equal(h.get('close-outline').hidden,true);h.get('undo').onclick();
 h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].outline.length,4);assert.equal(h.state().layers[0].pieces[0].holes.length,1);
 h.get('undo').onclick();assert.equal(h.state().layers[0].pieces[0].holes,undefined);

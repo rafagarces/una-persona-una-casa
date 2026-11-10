@@ -22,7 +22,7 @@ console.log('PASS rv5: markup identical to rv4 without ink, ink appended last, i
  const piece={v:2,kind:'wall',color:'#b04a41',material:'pencil',outline:[[10,20],[60,20],[60,85],[10,85]],marks:[]};
  V6.render(target2,{v:1,rv:6,seed:5,layers:[{kind:'wall',pieces:[piece]}]},5);
  const defId=(target2.html.match(/filter id="(sh-v6-r\d+)"/)||[])[1];assert.ok(defId,'el SVG sin base debe definir el filtro de sombra');
- assert.ok(target2.html.includes('feDropShadow dx=".06" dy=".1" stdDeviation=".1" flood-color="#241a30" flood-opacity=".11"'),'sombra idéntica a la de las casas iniciales');
+ assert.ok(target2.html.includes('feDropShadow dx=".16" dy=".3" stdDeviation=".22" flood-color="#241a30" flood-opacity=".15"'),'sombra idéntica a la de las casas iniciales');
  const layer=target2._svg;assert.ok(layer.kids.length>=1,'la capa se anexa al SVG');
  const layerHtml=layer.kids.map(k=>k.innerHTML||'').join('');
  assert.ok(layerHtml.includes('filter="url(#'+defId+')"'),'los recortes referencian el filtro definido');

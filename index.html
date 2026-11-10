@@ -86,12 +86,14 @@ button.gallery-card{border:0;min-height:0;padding:8px;font-weight:400}
 .stage{position:relative;width:min(100%,640px,calc(100svh - 230px - env(safe-area-inset-bottom)));aspect-ratio:1;justify-self:center}
 .stage #drawing{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;display:block}
 .stage #drawing:focus-visible{outline:3px solid var(--onpage,#252525);outline-offset:4px}
-.panel{background:#f7f7f7;color:#252525;--onpage:#252525;padding:18px;align-self:start;min-width:0}
+.panel{background:#f7f7f7;color:#252525;--onpage:#252525;padding:14px 16px;align-self:start;min-width:0}
+.panel p{font-size:14px}
 .panel .intro{margin:0 0 6px;max-width:none}
-.panel .field:first-of-type{margin-top:12px}
+.panel .field:first-of-type{margin-top:8px}
 .panel .send-status{min-height:20px;margin-top:6px}
+.publish-note{font-size:12px;color:#595959;text-align:center;margin:6px 0 0;line-height:1.35}
 .intro{margin:8px 0 20px;max-width:49ch}
-.field{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0}
+.field{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:8px 0}
 .field label,.label{font-size:14px;font-weight:600}
 .field select{min-height:44px;border:1px solid #666;background:#f7f7f7;padding:8px;max-width:100%}
 #paper-name{font-size:14px;font-weight:600}
@@ -107,12 +109,12 @@ button.gallery-card{border:0;min-height:0;padding:8px;font-weight:400}
 .swatch span{display:block;width:22px;height:22px;background:var(--ink);box-shadow:inset 0 0 0 1px #25252555}
 .swatch[aria-pressed=true]{border-color:#252525}
 #papers,#waxes{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;width:100%;margin:0}
-#papers .swatch,#waxes .swatch{width:100%;padding:0;display:flex;align-items:center;justify-content:center}
-#papers .swatch span,#waxes .swatch span{margin:0}
-.tools{display:grid;gap:6px;grid-template-columns:repeat(3,minmax(0,1fr));margin:12px 0}
+#papers .swatch,#waxes .swatch{width:100%;min-height:38px;padding:0;display:flex;align-items:center;justify-content:center}
+#papers .swatch span,#waxes .swatch span{margin:0;width:20px;height:20px}
+.tools{display:grid;gap:6px;grid-template-columns:repeat(3,minmax(0,1fr));margin:8px 0}
 .tools.modes{grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 4px}
-.tools.actions{margin:0 0 6px;grid-template-columns:repeat(3,minmax(0,1fr))}
-.restart{margin:0 0 8px}
+.tools.actions{margin:0 0 4px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.restart{margin:0 0 6px}
 .restart button{width:100%;min-height:44px;padding:10px 16px;border-color:#25252526;background:transparent;color:#595959;font-weight:500}
 .restart button:hover{background:#fff}
 .tools button{padding:8px 12px;font-size:14px}
@@ -163,7 +165,7 @@ body:has(#viewer[open]){overflow:hidden}
 
 @media(prefers-reduced-motion:reduce){body{transition:none}}
 </style>
-<link rel="stylesheet" href="ui-v2.css?v=20261109-b2">
+<link rel="stylesheet" href="ui-v2.css?v=20261110-auditoria1">
 </head>
 <body>
 <header class="topbar"><button id="brand" class="brand" type="button">Una persona, una casa</button></header>
@@ -193,7 +195,7 @@ body:has(#viewer[open]){overflow:hidden}
 </div>
 <p class="draft-note" id="draft-note" role="status" aria-live="polite">Tu casa se guarda solo en este navegador.</p>
 <div class="restart"><button id="clear" type="button" disabled>Empezar de nuevo</button></div>
-<div class="send-box"><label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label><button class="primary" id="submit-house" type="button" disabled>Publicar</button><p class="send-status" id="house-status" role="status" aria-live="polite"></p></div>
+<div class="send-box"><label class="honeypot" aria-hidden="true">Deja vacío<input id="website" tabindex="-1" autocomplete="off"></label><button class="primary" id="submit-house" type="button" disabled>Publicar</button><p class="publish-note">Al publicar, tu casa aparecerá en la galería pública.</p><p class="send-status" id="house-status" role="status" aria-live="polite"></p></div>
 </div></div>
 </section>
 <dialog id="clear-dialog"><h2>¿Empezar de nuevo?</h2><p>Se borrarán todas las capas, sus recortes, sus huecos y el dibujo. Puedes deshacer después.</p><div class="actions"><button id="cancel-clear" type="button">Cancelar</button><button id="confirm-clear" class="primary" type="button">Empezar de nuevo</button></div></dialog>
@@ -206,7 +208,7 @@ body:has(#viewer[open]){overflow:hidden}
 </dialog>
 <nav class="tabs" aria-label="Secciones"><button id="open-gallery" type="button">Galería</button><button id="open-workshop" type="button">Crea tu casa</button></nav>
 <script src="renderer-v2.js?v=20261109-draw2"></script>
-<script src="renderer-v5.js?v=20261109-draw2"></script>
-<script src="app.js?v=20261110-tijeras5"></script>
+<script src="renderer-v5.js?v=20261110-auditoria1"></script>
+<script src="app.js?v=20261110-auditoria1"></script>
 </body>
 </html>
