@@ -64,3 +64,43 @@ button,.tabs button,.tool{font-weight:500}
 .stage::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='%23252525' stroke-width='.55' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='.1 2.1'%3E%3Cpath d='M24 47V84H76V47'/%3E%3Cpath d='M17 47L50 17L83 47Z'/%3E%3Cpath d='M44 84V66a6 6 0 0 1 12 0V84'/%3E%3Crect x='29' y='54' width='9' height='9'/%3E%3C/svg%3E") center/100% 100% no-repeat}
 @media(prefers-reduced-motion:no-preference){.stage::after{transition:opacity .15s ease}}
 @media(prefers-reduced-motion:reduce){button,#again::before{transition:none}button:active{scale:1}}
+/* Hoja de interfaces.dev aplicada a todo: escala de espaciado 8/16/24/32 (entre grupos al menos el doble que dentro), radios concéntricos, tipografía y accesibilidad. El hueco de 8px entre Empezar de nuevo y Publicar no se toca. */
+:root{--s-1:8px;--s-2:16px;--s-3:24px;--s-4:32px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+h1,h2{text-wrap:balance}p{text-wrap:pretty;overflow-wrap:break-word}
+.viewer-count{font-variant-numeric:tabular-nums;white-space:nowrap}
+/* radios concéntricos: exterior = interior + padding (32 = 16 + 16) */
+.panel{border-radius:32px;padding:16px}
+dialog{border-radius:40px;padding:24px}
+.gallery-card{border-radius:24px}
+/* portada: elementos del mismo grupo a 8, grupos a 16/24 */
+.home{gap:var(--s-2);padding:var(--s-1) var(--s-2)}
+.home-actions{gap:var(--s-1);margin-top:0}
+.actions{gap:var(--s-1)}
+/* galería */
+.page{padding:var(--s-1) clamp(16px,5vw,72px) var(--s-4)}
+.page>h1{margin:var(--s-1) 0 var(--s-3)}
+.gallery-note{margin:0 0 var(--s-2)}
+#gallery h2{margin:var(--s-3) 0 var(--s-1)}
+.gallery-grid{gap:var(--s-2);margin:0 0 var(--s-3)}
+/* taller */
+.work-grid{gap:var(--s-4)}
+.panel .intro{margin:0 0 var(--s-2)}
+.panel .field:first-of-type{margin-top:var(--s-1)}
+.field{margin:var(--s-1) 0;gap:var(--s-1)}
+.tools,.tools.modes,.tools.actions{gap:var(--s-1);margin:0 0 var(--s-1)}
+.kind-picker{gap:var(--s-1)!important}
+.draft-note{margin:var(--s-2) 0 var(--s-1)}
+.send-status{margin-top:var(--s-1)}
+.publish-note{margin:var(--s-1) 0 0}
+dialog p{margin:var(--s-1) 0 var(--s-3)}
+/* visor */
+.viewer-top{padding:var(--s-2)}
+.viewer-nav{gap:var(--s-2);padding:var(--s-1) var(--s-2) calc(var(--s-2) + env(safe-area-inset-bottom))}
+.viewer-stage{padding:var(--s-1)}
+/* navegación inferior */
+.tabs,.tabs button{gap:var(--s-1)}.tabs{gap:var(--s-1)}
+@media(max-width:760px){.tabs{gap:var(--s-1)}.panel{padding:16px}.work-grid{gap:var(--s-2)}.gallery-card{padding:4px}.gallery-grid{gap:var(--s-1)}.page{padding-left:16px;padding-right:16px}}
+/* enlaces y estados: subrayado sin cortar colas, hover solo con ratón, sin transition all */
+a{text-underline-position:from-font;text-decoration-skip-ink:auto}
+@media(hover:none){button:hover,.brand:hover,.ghost:hover,.viewer-btn:hover{text-decoration:none}}
+.swatch,.kind-x{min-width:24px;min-height:24px}
