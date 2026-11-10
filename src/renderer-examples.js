@@ -100,7 +100,7 @@
     function col(){var c,t=0;do{c=pick(others);t++}while(used.indexOf(c)>-1&&t<20);used.push(c);return c}
     function colFar(far){var c,t=0;do{c=col();t++}while(dist(c,far)<55&&t<25);return c}
 
-    var out='',penTop='',penBack='',extra='';
+    var out='',penTop='',penBack='',extra='',near='';
     var baseY=R(80,84);
     var kind=Math.floor(R(0,6));
     var bodyCol=col(),roofCol=rnd()<.25?'#f6f3ee':colFar(bodyCol),doorCol=colFar(bodyCol);
@@ -108,7 +108,7 @@
     var doorX=null,doorBase=null;
 
     function paperWin(cx,cy,w,h,c){out+=piece(rect(cx-w/2,cy-h/2,w,h),c||col(),.5)}
-    function chimney(x,y,w,h,c){out+=piece(rect(x,y,w,h),c||col(),.8);if(rnd()<.55)extra+=smoke(x+w/2,y-1)}
+    function chimney(x,y,w,h,c){out+=piece(rect(x,y,w,h),c||col(),.8);if(rnd()<.55)near+=smoke(x+w/2,y-1)}
 
     if(kind===0){ // casa alta con tejado inclinado (shed)
       var bw=R(20,27),bh=R(30,40),bx=cx0-bw/2,by=baseY-bh,sl=rnd()<.5?1:-1;
@@ -178,7 +178,7 @@
       var dw=R(6.5,8.5),dh=R(10,13);doorX=bx+bw*R(.6,.75);doorBase=baseY;
       out+=piece(rect(doorX,baseY-dh,dw,dh),doorCol,.5);
       penTop+=pen([[doorX+dw*.72,baseY-dh*.5],[doorX+dw*.76,baseY-dh*.48]],.7);
-      if(rnd()<.4)extra+=tree(side>0?bx-R(6,9):bx+bw+R(6,9),baseY,R(6,9),col);
+      if(rnd()<.4)near+=tree(side>0?bx-R(6,9):bx+bw+R(6,9),baseY,R(6,9),col);
     }
     else { // frontón con buhardilla
       var bw=R(26,34),bh=R(20,27),bx=cx0-bw/2,by=baseY-bh,rh=R(15,22);
@@ -211,7 +211,7 @@
      '<filter id="gr" filterUnits="userSpaceOnUse" x="-60" y="-60" width="220" height="220"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="'+gseed+'" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -7 6.55" result="m"/><feGaussianBlur in="SourceGraphic" stdDeviation=".05" result="b"/><feComposite in="b" in2="m" operator="in"/></filter></defs>'+
      '<g transform="rotate('+f(rotp)+' 50 50)"><rect x="3" y="3" width="94" height="94" fill="#f7f5f0"/>'+
      '<g transform="rotate('+f(rotb)+' 50 50)"><path d="'+path([J([10,9],.8),J([91,8],.8),J([90.5,89],.8),J([9.5,90],.8)])+'" fill="'+bg+'"/>'+
-     '<g id="sc">'+sky+'</g><g id="hs"><g id="hb">'+penBack+out+penTop+'</g>'+extra+'</g></g>'+
+     '<g id="sc">'+sky+'</g><g id="hs"><g id="hb">'+penBack+out+penTop+'</g><g id="xr">'+near+'</g>'+extra+'</g></g>'+
      '<image x="3" y="3" width="94" height="94" href="paper.png" preserveAspectRatio="none"/></g></svg>';
     return svg;
   }
@@ -223,8 +223,16 @@
     ['sh','gr'].forEach(function(id){markup=markup.split('id="'+id+'"').join('id="'+id+uid+'"').split('url(#'+id+')').join('url(#'+id+uid+')')});
     markup=markup.split('id="hx').join('id="hx'+uid+'-').split('url(#hx').join('url(#hx'+uid+'-');
     target.innerHTML=markup;
-    var g=target.querySelector('#hs'),b=target.querySelector('#hb').getBBox(),k=Math.min(74/b.width,74/b.height)*R(.92,1);
-    var cx=b.x+b.width/2,cy=b.y+b.height/2,tx=50+R(-2.5,2.5),ty=LASTGY-.5-k*b.height/2;
+    var g=target.querySelector('#hs'),b=target.querySelector('#hb').getBBox();
+    // Encuadre: la escala la manda la casa (#hb); humo y árbol (#xr) solo limitan
+    // para que nada quede flotando fuera de la cartulina. El hatch queda fuera de
+    // la medida: sus líneas sobrepasan el tejado antes del recorte visual.
+    var cb=b,xr=target.querySelector('#xr');
+    if(xr&&xr.childNodes.length){var x=xr.getBBox(),x0=Math.min(b.x,x.x),y0=Math.min(b.y,x.y),x1=Math.max(b.x+b.width,x.x+x.width),y1=Math.max(b.y+b.height,x.y+x.height);cb={x:x0,y:y0,width:x1-x0,height:y1-y0}}
+    var k=Math.min(74/b.width,74/b.height)*R(.92,1);
+    k=Math.min(k,74/cb.width,74/cb.height);
+    var cx=cb.x+cb.width/2,cy=cb.y+cb.height/2,tx=50+R(-2.5,2.5),ty=LASTGY-.5-k*cb.height/2;
+    tx=Math.max(11+k*cb.width/2,Math.min(89-k*cb.width/2,tx));
     g.setAttribute('transform','translate('+f(tx)+' '+f(ty)+') rotate('+f(R(-1.6,1.6))+') scale('+f(k)+') translate('+f(-cx)+' '+f(-cy)+')');
     return {background:PAGE,shared:false};
   }
