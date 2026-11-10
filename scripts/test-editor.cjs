@@ -94,4 +94,24 @@ wall=h.state().layers[0].pieces[0];assert.match(h.get('draft-note').textContent,
 // El papel que recibe el corte es el que cubre más puntos del trazo, aunque el centroide caiga fuera.
 {const h4=setup();h4.kinds[0].onclick();h4.draw([[10,20],[60,20],[60,85],[10,85]]);h4.tap(1,1);h4.get('tool-hole').onclick();const d4=h4.get('drawing');d4.onpointerdown(ev(10,30));d4.onpointermove(ev(16,45));d4.onpointermove(ev(10,60));d4.onpointerup();assert.match(h4.get('draft-note').textContent,/Muesca recortada/);assert.ok(h4.state().layers[0].pieces[0].outline.length>4)}
 console.log('PASS: tijeras con gestos reales: hueco grande lento, mordida en el borde, muesca con tembleque, apenas roza, anillo fuera, papel por mayoría del trazo');
+h=setup();h.kinds[0].onclick();h.draw([[20,20],[80,20],[80,80],[20,80]]);h.get('tool-hole').onclick();
+{ // tajo que cruza el papel con extremos FUERA de la zona: debe cortar
+ const before=h.state().layers[0].pieces[0].outline.length;
+ let pts=[];for(let i=0;i<=40;i++)pts.push([5+i*2.25,20+i*0.5+Math.sin(i)*0.5]); // de (5,20) fuera a (95,40) fuera: cruza el papel de borde a borde
+ h.get('drawing').onpointerdown(ev(pts[0][0],pts[0][1]));pts.forEach(p=>h.get('drawing').onpointermove(ev(p[0],p[1])));h.get('drawing').onpointerup();
+ assert.match(h.get('draft-note').textContent,/Muesca recortada/);assert.notEqual(h.state().layers[0].pieces[0].outline.length,before);
+}
+{ // tajo que empieza dentro y sale del papel: debe cortar
+ h.get('undo').onclick();const out0=h.state().layers[0].pieces[0].outline;
+ let pts=[];for(let i=0;i<=30;i++)pts.push([50+i*1.8,50-i*0.8+Math.cos(i)*0.5]); // de (50,50) dentro a (104,26) fuera
+ h.get('drawing').onpointerdown(ev(pts[0][0],pts[0][1]));pts.forEach(p=>h.get('drawing').onpointermove(ev(p[0],p[1])));h.get('drawing').onpointerup();
+ assert.match(h.get('draft-note').textContent,/Muesca recortada/);assert.notDeepEqual(h.state().layers[0].pieces[0].outline,out0);
+ h.get('undo').onclick();
+}
+{ // gesto fuera que NO toca el papel: sigue sin cortar
+ let pts=[];for(let i=0;i<=20;i++)pts.push([2+i*0.5,2+i*0.2]);
+ h.get('drawing').onpointerdown(ev(pts[0][0],pts[0][1]));pts.forEach(p=>h.get('drawing').onpointermove(ev(p[0],p[1])));h.get('drawing').onpointerup();
+ assert.equal(h.state().layers[0].pieces[0].holes,undefined);
+}
+console.log('PASS: tijeras cortan aunque el trazo salga de la zona: cruce completo, salida desde dentro, fuera sin contacto');
 })().catch(e=>{console.error(e);process.exit(1)});

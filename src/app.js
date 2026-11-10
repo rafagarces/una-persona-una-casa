@@ -141,7 +141,7 @@ var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261110-fondos2',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
+var ASSET_V='20261110-tijeras4',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
 // Veredicto recordado solo si es 'slow' y sigue vigente: mismo build de assets y tamano de
 // rasterizado parecido (+-25%). Un 'fast' nunca se guarda: cada carga vuelve a sondear, asi
 // ninguna estimacion puntual se convierte en permiso permanente para rasterizar en grande.
@@ -351,6 +351,7 @@ function spliceNotch(outline,pts){
  if(fLen<=cLen)return [A.pt].concat(pathInt,[B.pt],cInt);
  return [A.pt].concat(fInt,[B.pt],pathInt.slice().reverse());
 }
+function segIntPt(a,b,c,d){var r0=b[0]-a[0],r1=b[1]-a[1],s0=d[0]-c[0],s1=d[1]-c[1],den=r0*s1-r1*s0;if(!den)return null;var t=((c[0]-a[0])*s1-(c[1]-a[1])*s0)/den,u=((c[0]-a[0])*r1-(c[1]-a[1])*r0)/den;if(t<-1e-9||t>1+1e-9||u<-1e-9||u>1+1e-9)return null;t=Math.max(0,Math.min(1,t));return{t:t,pt:[a[0]+t*r0,a[1]+t*r1]}}
 function segInt(a,b,c,d){var s=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),t=(b[0]-a[0])*(d[1]-a[1])-(b[1]-a[1])*(d[0]-a[0]),u=(d[0]-c[0])*(a[1]-c[1])-(d[1]-c[1])*(a[0]-c[0]),v=(d[0]-c[0])*(b[1]-c[1])-(d[1]-c[1])*(b[0]-c[0]);return (s>0)!==(t>0)&&(u>0)!==(v>0)}
 function holesOverlap(a,b){
  if(a.some(function(p){return inside(p,b)}))return true;
@@ -372,17 +373,37 @@ function finishHole(raw){
  var clampEdge=function(p){return inside(p,outline)?p:boundaryProj(p,outline).pt};
  var A=boundaryProj(raw[0],outline),B=boundaryProj(raw[raw.length-1],outline);
  var closedish=Math.hypot(raw[0][0]-raw[raw.length-1][0],raw[0][1]-raw[raw.length-1][1])<=5;
- if(!closedish&&A.d<=4&&B.d<=4){
-  // Muesca de borde: el trazo va de borde a borde y sustituye el arco más corto.
-  var eps=.4,ring2=null;
- for(;;){ring2=spliceNotch(outline,simplify(raw,eps).map(clampEdge)).map(r10);ring2=ring2.filter(function(p,q){return q===0||Math.hypot(p[0]-ring2[q-1][0],p[1]-ring2[q-1][1])>=.05});if(ring2.length<=160||eps>3)break;eps*=1.5}
-  if(ring2.length>160)return bail('Ese corte tiene demasiados cambios. Prueba un trazo más sencillo.');
-  var xs=ring2.map(function(p){return p[0]}),ys=ring2.map(function(p){return p[1]});
-  if(ring2.length<3||Math.max.apply(null,xs)-Math.min.apply(null,xs)<4||Math.max.apply(null,ys)-Math.min.apply(null,ys)<4||area2(ring2)<15)return bail('Ese corte dejaría el papel demasiado pequeño.');
-  var a0=area2(outline);
-  if(area2(ring2)<a0*.6)return bail('Ese corte partiría el papel en dos.');
-  if(a0-area2(ring2)<2)return bail('Ese corte apenas roza el papel. Entra un poco más.');
-  checkpoint();target.outline=ring2;resetCanvas();changed();setText('draft-note','Muesca recortada en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');return;
+ if(!closedish){
+  // Muesca de borde: el trazo va de borde a borde y sustituye el arco más corto. El dedo puede
+  // empezar o acabar FUERA del papel: se recorta el trazo por donde cruza el borde y se corta igual.
+  var doNotch=function(pathPts){
+   var eps=.4,ring2=null;
+   for(;;){ring2=spliceNotch(outline,simplify(pathPts,eps).map(clampEdge)).map(r10);ring2=ring2.filter(function(p,q){return q===0||Math.hypot(p[0]-ring2[q-1][0],p[1]-ring2[q-1][1])>=.05});if(ring2.length<=160||eps>3)break;eps*=1.5}
+   if(ring2.length>160)return bail('Ese corte tiene demasiados cambios. Prueba un trazo más sencillo.');
+   var xs=ring2.map(function(p){return p[0]}),ys=ring2.map(function(p){return p[1]});
+   if(ring2.length<3||Math.max.apply(null,xs)-Math.min.apply(null,xs)<4||Math.max.apply(null,ys)-Math.min.apply(null,ys)<4||area2(ring2)<15)return bail('Ese corte dejaría el papel demasiado pequeño.');
+   var a0=area2(outline);
+   if(area2(ring2)<a0*.6)return bail('Ese corte partiría el papel en dos.');
+   if(a0-area2(ring2)<2)return bail('Ese corte apenas roza el papel. Entra un poco más.');
+   checkpoint();target.outline=ring2;resetCanvas();changed();setText('draft-note','Muesca recortada en tu '+KIND_NAME[target.kind].toLowerCase()+'. Puedes deshacer.');return;
+  };
+  // Cruces del trazo con el borde, en orden de recorrido.
+  var xi=[];
+  for(var g=0;g<raw.length-1;g++)for(var e=0;e<outline.length;e++){var ip=segIntPt(raw[g],raw[g+1],outline[e],outline[(e+1)%outline.length]);if(ip)xi.push({s:g+ip.t,pt:ip.pt})}
+  xi.sort(function(x,y){return x.s-y.s});
+  xi=xi.filter(function(x,q){return q===0||x.s-xi[q-1].s>1e-6&&Math.hypot(x.pt[0]-xi[q-1].pt[0],x.pt[1]-xi[q-1].pt[1])>.05});
+  if(xi.length>=2){
+   var c0=xi[0],c1=xi[xi.length-1],inner=[];
+   for(var m2=Math.floor(c0.s)+1;m2<=Math.ceil(c1.s)-1;m2++)inner.push(raw[m2]);
+   return doNotch([c0.pt].concat(inner,[c1.pt]));
+  }
+  // Un solo cruce: el trazo empieza dentro y sale del papel (o al revés).
+  if(xi.length===1){
+   var cx=xi[0];
+   if(inside(raw[0],outline))return doNotch(raw.slice(0,Math.floor(cx.s)+1).concat([cx.pt]));
+   if(inside(raw[raw.length-1],outline))return doNotch([cx.pt].concat(raw.slice(Math.ceil(cx.s))));
+  }
+  if(A.d<=4&&B.d<=4)return doNotch(raw);
  }
  // Hueco interior: anillo cerrado dentro de un solo papel; si roza el borde, la mordida queda
  // pegada a él (el evenodd rellenaría de papel lo que sobresaliera, así que se apoya en el borde).
