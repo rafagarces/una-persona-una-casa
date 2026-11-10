@@ -67,7 +67,7 @@ function fresh(){
   var done=function(ok){
    clearTimeout(bankTimer);pressBusy=false;
    if(ok){delete bankPre[e.f];$('card').replaceChildren(img);applyHome(e.seed,e.background,e.shared);diagLog('refresh banco '+e.f+' '+Math.round(performance.now()-pressT0)+'ms')}
-   else{var seed=(Math.random()*4294967296)>>>0;var r=CasasV2.render($('card'),null,seed);applyHome(seed,r.background,r.shared);diagLog('refresh render directo (banco no llego)')}
+   else{var seed=(Math.random()*4294967296)>>>0;var r=CasasEx.render($('card'),null,seed);applyHome(seed,r.background,r.shared);diagLog('refresh render directo (banco no llego)')}
    bankPrefetch();
   };
   if(img&&img.complete){done(!!img.naturalWidth);return}
@@ -77,7 +77,7 @@ function fresh(){
   img.onerror=function(){done(false)};
   return
  }
- var seed=(Math.random()*4294967296)>>>0;var t0=performance.now();var r=CasasV2.render($('card'),null,seed);diagLog('refresh render directo '+Math.round(performance.now()-t0)+'ms');applyHome(seed,r.background,r.shared);
+ var seed=(Math.random()*4294967296)>>>0;var t0=performance.now();var r=CasasEx.render($('card'),null,seed);diagLog('refresh render directo '+Math.round(performance.now()-t0)+'ms');applyHome(seed,r.background,r.shared);
 }
 function startProbe(){
  if(probeDone||!viewerPaperURI)return;
@@ -87,7 +87,7 @@ function startProbe(){
  // recuerda (mismo build, tamano parecido); el 'rapido' se vuelve a medir en cada carga.
  var px=homePx()||1065,tmp=document.createElement('div'),r;
  viewerHost().appendChild(tmp);
- try{r=CasasV2.render(tmp,null,(Math.random()*4294967296)>>>0)}catch(e){if(tmp.parentNode)tmp.parentNode.removeChild(tmp);return}
+ try{r=CasasEx.render(tmp,null,(Math.random()*4294967296)>>>0)}catch(e){if(tmp.parentNode)tmp.parentNode.removeChild(tmp);return}
  var svg=tmp.firstChild;
  if(tmp.remove)tmp.remove();else if(tmp.parentNode)tmp.parentNode.removeChild(tmp);
  if(!svg)return;
@@ -104,7 +104,7 @@ function startProbe(){
  });
 }
 // Primera casa al cargar: render directo para que la portada salga pintada sin esperar descargas; a partir de ahí, el banco.
-var firstSeed=(Math.random()*4294967296)>>>0,firstRender=CasasV2.render($('card'),null,firstSeed);
+var firstSeed=(Math.random()*4294967296)>>>0,firstRender=CasasEx.render($('card'),null,firstSeed);
 applyHome(firstSeed,firstRender.background,firstRender.shared);
 $('again').onclick=fresh;
 loadViewerPaper();
@@ -161,7 +161,7 @@ function rendererReady(rv){
  // Una descarga fallida limpia la promesa: la siguiente necesidad reintenta (máx. 3 por sesión).
  return rendererLoads[need]||(rendererLoads[need]=new Promise(function(res){var s=document.createElement('script');rendererTries[need]=(rendererTries[need]||0)+1;s.src=RENDERER_SRC[need]+'?v='+ASSET_V;s.onload=res;s.onerror=function(){delete rendererLoads[need];res()};document.head.appendChild(s)}));
 }
-function rendererFor(rv){return rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:rv===6?CasasV6:CasasV2}
+function rendererFor(rv){return rv===7?CasasEx:rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:rv===6?CasasV6:CasasV2}
 function paintCard(grid,item,index,set){
   var card=document.createElement('button');card.type='button';card.className='gallery-card';
   card.setAttribute('aria-label',item.label+'. Abrir en grande. Casa '+(index+1)+' de '+set.length+'.');
@@ -181,7 +181,7 @@ function paintCard(grid,item,index,set){
   };
   queueRender(work);
 }
-var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:2,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
+var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:7,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 var galleryItems=null,galleryItemsSig=null;
 function shuffled(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
 // Orden aleatorio de la galería: se baraja una sola vez cuando cambia el conjunto de casas

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { minify } from 'terser';
 import CleanCSS from 'clean-css';
 
-const js = ['app', 'renderer-v1', 'renderer-v2', 'renderer-v3', 'renderer-v4', 'renderer-v5', 'renderer-v6'];
+const js = ['app', 'renderer-v1', 'renderer-v2', 'renderer-v3', 'renderer-v4', 'renderer-v5', 'renderer-v6', 'renderer-examples'];
 for (const f of js) {
   const code = readFileSync(`src/${f}.js`, 'utf8');
   const out = await minify(code, { compress: true, mangle: true });

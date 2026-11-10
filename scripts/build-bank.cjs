@@ -11,13 +11,14 @@
 // Requiere playwright-core, un Chromium headless e ImageMagick (dependencias de
 // desarrollo, no del build CI).
 const { chromium } = require('playwright-core');
+const CHROME = process.env.CHROME_PATH || undefined;
 const fs = require('fs');
 
 const N = 40, PX = 1360;
 const OUT = process.argv[2] || 'bank';
 
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, executablePath: CHROME });
   const page = await (await browser.newContext()).newPage();
   await page.goto('http://127.0.0.1:8911/', { waitUntil: 'load' });
   await page.waitForSelector('#card svg', { timeout: 20000 });
@@ -31,7 +32,7 @@ const OUT = process.argv[2] || 'bank';
       const seed = (1000003 + i * 7919) >>> 0;
       const host = document.createElement('div');
       document.body.appendChild(host);
-      const r = CasasV2.render(host, null, seed);
+      const r = CasasEx.render(host, null, seed);
       const svg = host.firstChild;
       svg.setAttribute('width', px); svg.setAttribute('height', px);
       const xml = new XMLSerializer().serializeToString(svg).replace('href="paper.png"', 'href="' + paper + '"');
