@@ -68,9 +68,9 @@ button,.tabs button,.tool{font-weight:500}
 :root{--s-1:8px;--s-2:16px;--s-3:24px;--s-4:32px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 h1,h2{text-wrap:balance}p{text-wrap:pretty;overflow-wrap:break-word}
 .viewer-count{font-variant-numeric:tabular-nums;white-space:nowrap}
-/* radios concéntricos: exterior = interior + padding (32 = 16 + 16) */
-.panel{border-radius:32px;padding:16px}
-dialog{border-radius:40px;padding:24px}
+/* radios: se mantienen los ya aprobados (24); no se añade redondeo nuevo */
+.panel{padding:16px}
+dialog{padding:24px}
 .gallery-card{border-radius:24px}
 /* portada: elementos del mismo grupo a 8, grupos a 16/24 */
 .home{gap:var(--s-2);padding:var(--s-1) var(--s-2)}
