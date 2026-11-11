@@ -162,24 +162,37 @@ function rendererReady(rv){
  return rendererLoads[need]||(rendererLoads[need]=new Promise(function(res){var s=document.createElement('script');rendererTries[need]=(rendererTries[need]||0)+1;s.src=RENDERER_SRC[need]+'?v='+ASSET_V;s.onload=res;s.onerror=function(){delete rendererLoads[need];res()};document.head.appendChild(s)}));
 }
 function rendererFor(rv){return rv===7?CasasEx:rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:rv===6?CasasV6:CasasV2}
+var galleryObserver=null;
+function makeGalleryObserver(){
+  if(galleryObserver){galleryObserver.disconnect();galleryObserver=null}
+  if(!('IntersectionObserver' in window))return;
+  galleryObserver=new IntersectionObserver(function(entries){entries.forEach(function(e){var c=e.target;if(e.isIntersecting){if(c.__show)c.__show()}else if(c.__hide)c.__hide()})},{root:$('content'),rootMargin:'1000px 0px 1000px 0px'});
+}
 function paintCard(grid,item,index,set){
   var card=document.createElement('button');card.type='button';card.className='gallery-card';
   card.setAttribute('aria-label',item.label+'. Abrir en grande. Casa '+(index+1)+' de '+set.length+'.');
   card.onclick=function(){openViewer(set,index,card)};
   var art=document.createElement('div');art.className='art';art.setAttribute('aria-hidden','true');card.appendChild(art);grid.appendChild(card);
+  var mounted=false,pending=false,want=false;
   var work=function(){
+    pending=false;
+    if(mounted||!want||!card.isConnected)return;
     if(!rendererAvailable(item.rv)){if(rendererFailed(item.rv)){card.remove();return}rendererReady(item.rv).then(function(){queueRender(work)});return}
     // Render in the connected offscreen host: the grid can be display:none (user left the tab) and getBBox needs layout.
     if(item.example)CasasV2.setCommunity([]);
     try{
       var tmp=document.createElement('div');viewerHost().appendChild(tmp);
       var r=rendererFor(item.rv).render(tmp,item.design,item.seed);
-      if(tmp.firstChild)art.replaceChildren(tmp.firstChild);
+      if(tmp.firstChild){art.replaceChildren(tmp.firstChild);mounted=true}
       if(tmp.remove)tmp.remove();else if(tmp.parentNode&&tmp.parentNode.removeChild)tmp.parentNode.removeChild(tmp);
     }catch(e){card.remove()}
     finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
   };
-  queueRender(work);
+  // Lazy mount: only cards near the viewport hold a live (filtered) SVG; far cards, and every card while the
+  // gallery is hidden, are emptied. The card box keeps its size (aspect-ratio), so scroll position and order are unchanged.
+  var show=function(){want=true;if(mounted||pending)return;pending=true;queueRender(work)};
+  var hide=function(){want=false;pending=false;if(mounted){art.replaceChildren();mounted=false}};
+  if(galleryObserver){card.__show=show;card.__hide=hide;galleryObserver.observe(card)}else show();
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:7,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 var galleryItems=null,galleryItemsSig=null;
@@ -199,7 +212,7 @@ function paintGallery(){
   var sig=bankSig();
   if(sig!==paintedGallery){
     paintedGallery=sig;
-    var grid=$('gallery-grid');grid.replaceChildren();
+    var grid=$('gallery-grid');grid.replaceChildren();makeGalleryObserver();
     var items=galleryOrder();
     var rvs={};items.forEach(function(item){rvs[rendererNeed(item.rv||2)]=1});Object.keys(rvs).forEach(function(rv){rendererReady(+rv)});
     items.forEach(function(item,i){paintCard(grid,item,i,items)});
