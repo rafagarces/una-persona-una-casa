@@ -192,7 +192,14 @@ function paintCard(grid,item,index,set){
   // gallery is hidden, are emptied. The card box keeps its size (aspect-ratio), so scroll position and order are unchanged.
   var show=function(){want=true;if(mounted||pending)return;pending=true;queueRender(work)};
   var hide=function(){want=false;pending=false;if(mounted){art.replaceChildren();mounted=false}};
-  if(galleryObserver){card.__show=show;card.__hide=hide;galleryObserver.observe(card)}else show();
+  var startSvg=function(){if(galleryObserver){card.__show=show;card.__hide=hide;galleryObserver.observe(card)}else show()};
+  if(item.example){
+    // Example houses are shipped as bitmaps of the same seeds (gallery/ex-SEED.webp, 640 px): a thumbnail does not need
+    // dozens of live filtered SVGs. If the bitmap fails to load, fall back to the live SVG.
+    var img=new Image();img.alt='';img.width=640;img.height=640;img.decoding='async';img.loading='lazy';img.draggable=false;
+    img.onerror=function(){img.onerror=null;img.remove();startSvg()};
+    img.src='gallery/ex-'+item.seed+'.webp';art.appendChild(img);
+  }else startSvg();
 }
 var EXAMPLE_SET=EXAMPLES.map(function(seed){return {design:null,seed:seed,rv:7,example:true,label:'Casa de ejemplo hecha con recortes de papel'}});
 var galleryItems=null,galleryItemsSig=null;
