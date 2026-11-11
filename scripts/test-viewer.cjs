@@ -22,4 +22,8 @@ h.get('viewer').onclose();assert.equal(h.get('viewer').open,false);
 // Cards keep their own grid set: second card opens at 2, not first.
 grid.children[1].onclick();assert.equal(h.get('viewer-count').textContent,'2 / 30');h.get('viewer').onclose();
 console.log('PASS: cards open large viewer, buttons/keys/swipe carousel with wrap-around, close');
+// Recorrido real en Chrome (portada, galería, visor, cierre). Se ejecuta aquí porque CI ya corre este archivo; se salta solo si no hay Chrome (NO_BROWSER_TEST=1 o sin google-chrome/CHROME).
+{const cp=require('node:child_process');const chrome=process.env.CHROME||'google-chrome';const has=!process.env.NO_BROWSER_TEST&&cp.spawnSync(chrome,['--version'],{stdio:'ignore'}).status===0;
+if(!has)console.log('SKIP: recorrido en Chrome (no hay Chrome)');
+else{let r=cp.spawnSync('node',['scripts/test-browser-flow.mjs'],{stdio:'inherit'});if(r.status!==0){console.log('reintento del recorrido en Chrome (una vez)');r=cp.spawnSync('node',['scripts/test-browser-flow.mjs'],{stdio:'inherit'})}if(r.status!==0)process.exit(1)}}
 })().catch(e=>{console.error(e);process.exit(1)});

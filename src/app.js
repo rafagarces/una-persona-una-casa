@@ -175,6 +175,8 @@ function thumbify(k,svg,art,stillWanted){
   if(!thumbBusy){thumbBusy=true;schedule(thumbNext)}
 }
 function thumbNext(){
+  // Con el visor abierto no se rasteriza nada de fondo: no debe competir con los fotogramas de abrir/cerrar.
+  if(viewerSet){setTimeout(thumbNext,400);return}
   var j=thumbQueue.shift();
   if(!j||thumbSlow){thumbQueue=[];thumbBusy=false;return}
   if(!viewerPaperURI){if(paperFailed){thumbQueue=[];thumbBusy=false;return}thumbQueue.unshift(j);setTimeout(thumbNext,250);return}
