@@ -8,7 +8,7 @@ Review actual pixels before approval. Only geometric JSON is ever imported.
 import math,sys,json,pathlib,re,html,hashlib,time
 from cloudflare import query
 root=pathlib.Path(__file__).parents[1]
-PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a']
+PAPERS=['#f0e7d8','#dfa3a5','#b04a41','#4a6a9e','#5d8266','#c98d45','#8a8d94','#3a3f4a','#cf4640','#e8873a','#b3bc3d','#2ea87c','#1f9aa8','#5168d8','#8d54c2','#cf4a88']
 INKS=['#2b2a33','#453f3b','#2a3350','#9b3c39','#315f58','#b16d34']
 def clean(x):
  assert x.get('v')==2 and x['kind'] in ['wall','door','window','roof'] and x['color'] in PAPERS and x['material'] in ['pencil','wax']
@@ -66,6 +66,9 @@ def cleanHouse(x):
  if x.get('rv') in [4,5,6]:
   assert x.get('v')==1 and type(x.get('seed')) is int and 0<=x['seed']<=4294967295 and isinstance(x.get('layers'),list) and len(x['layers'])<=4
   out={'v':1,'rv':x['rv'],'seed':x['seed']}
+  if x.get('bg') is not None:
+   # Same rule as worker.normalizeHouse: stored page color only on rv6, hex, lowercase.
+   assert x['rv']==6 and isinstance(x['bg'],str) and re.fullmatch(r'#[0-9a-fA-F]{6}',x['bg']);out['bg']=x['bg'].lower()
   if x.get('base') is not None:
    assert x['base'].get('rv')==2 and x['base'].get('base') is None and x['base'].get('seed')==x['seed']
    legacy=cleanHouse({'v':1,'rv':3,'seed':x['seed'],'base':x['base'],'tints':x.get('tints'),'omit':x.get('omit'),'windows':[]});out['base']=legacy['base']
