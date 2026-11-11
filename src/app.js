@@ -79,8 +79,9 @@ function fresh(){
  }
  var seed=(Math.random()*4294967296)>>>0;var t0=performance.now();var r=CasasEx.render($('card'),null,seed);diagLog('refresh render directo '+Math.round(performance.now()-t0)+'ms');applyHome(seed,r.background,r.shared);
 }
+var probeStarted=false;
 function startProbe(){
- if(probeDone||!viewerPaperURI)return;
+ if(probeDone||probeStarted||!viewerPaperURI)return;probeStarted=true;
  // Sonda de dos puntos (1/64 y 1/16 del area real): la diferencia entre ambas separa el
  // coste fijo del coste por pixel y la extrapolacion decide si este dispositivo rasteriza
  // bitmaps del visor en segundo plano o usa siempre SVG directo. El veredicto 'lento' se
@@ -107,12 +108,11 @@ function startProbe(){
 var firstSeed=(Math.random()*4294967296)>>>0,firstRender=CasasEx.render($('card'),null,firstSeed);
 applyHome(firstSeed,firstRender.background,firstRender.shared);
 $('again').onclick=fresh;
-loadViewerPaper();
 fetch('bank/manifest.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list)&&list.length){bankList=list;bankPrefetch()}}).catch(function(){});
 fetch('community.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw Error();return r.json()}).then(function(list){if(Array.isArray(list))COMMUNITY_LIST=list.filter(valid).slice(0,600);if(typeof Casas!=='undefined')Casas.setCommunity(COMMUNITY_LIST);CasasV2.setCommunity(COMMUNITY_LIST)}).catch(function(){});
 var VIEWS=['home','gallery','workshop'],TABS={gallery:'open-gallery',workshop:'open-workshop'};
 var viewScroll={};
-function show(name){if(name===currentView)return;drawing=null;if($('content'))viewScroll[currentView]=$('content').scrollTop;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();saveDesign();preview()}if(name==='gallery'){paintGallery();loadHouses(true)}if($('content'))$('content').scrollTop=viewScroll[name]||0;window.scrollTo(0,0);if(name!=='home'){$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}}
+function show(name){if(name===currentView)return;drawing=null;if($('content'))viewScroll[currentView]=$('content').scrollTop;currentView=name;VIEWS.forEach(function(v){$(v).hidden=v!==name});Object.keys(TABS).forEach(function(v){if(v===name)$(TABS[v]).setAttribute('aria-current','page');else $(TABS[v]).removeAttribute('aria-current')});document.body.style.background=homeBackground;if(name==='workshop'){chooseLast();sync();saveDesign();preview()}if(name==='gallery'){loadViewerPaper();paintGallery();loadHouses()}if($('content'))$('content').scrollTop=viewScroll[name]||0;window.scrollTo(0,0);if(name!=='home'){$(name==='gallery'?'gallery-title':'work-title').focus({preventScroll:true})}}
 $('open-workshop').onclick=function(){show('workshop')};$('open-gallery').onclick=function(){show('gallery')};$('brand').onclick=function(){show('home')};
 var RENDER_V=4,housesBank=null,galleryError=false,housesSig=null,housesAt=0,housesLoading=null,paintedGallery=null,renderQueue=[],renderScheduled=false;
 function queueRender(fn){renderQueue.push(fn);if(renderScheduled)return;renderScheduled=true;
@@ -135,14 +135,13 @@ async function loadHouses(force){
  return housesLoading;
 }
 if(window.requestIdleCallback)requestIdleCallback(function(){loadHouses()});else setTimeout(function(){loadHouses()},2000);
-// Con la portada ya servida, los motores de la galería se traen en segundo plano para que abrirla sea inmediato.
-if(window.requestIdleCallback)requestIdleCallback(function(){rendererReady(1);rendererReady(3);rendererReady(4)},{timeout:6000});else setTimeout(function(){rendererReady(1);rendererReady(3);rendererReady(4)},8000);
+// Los motores de la galería y la sonda de rasterizado ya no se lanzan en reposo desde la portada: se piden al abrir la galería o el visor.
 function validHouse(h){if(!h||h.v!==1||![1,2,3,4,5,6].includes(h.rv)||!Number.isInteger(h.seed)||h.seed<0||h.seed>4294967295)return false;if(h.base&&(!(h.rv===3||h.rv===4||h.rv===5||h.rv===6)||h.base.rv!==2||h.base.base||h.base.seed!==h.seed||!validHouse(h.base)))return false;if(h.rv===4||h.rv===5||h.rv===6)return (h.ink==null||((h.rv===5||h.rv===6)&&validInk(h.ink)))&&Array.isArray(h.layers)&&h.layers.length<=4&&new Set(h.layers.map(function(l){return l.kind})).size===h.layers.length&&h.layers.reduce(function(n,l){return n+(l.pieces||[]).length},0)<=24&&h.layers.every(function(l){return KINDS.includes(l.kind)&&Array.isArray(l.pieces)&&l.pieces.length&&l.pieces.every(function(p){return valid(p)&&p.kind===l.kind})});return ['wall','roof','door'].every(function(k){return !h[k]||(valid(h[k])&&h[k].kind===k)})&&Array.isArray(h.windows)&&h.windows.length<=4&&h.windows.every(function(w){return valid(w)&&w.kind==='window'})}
 var EXAMPLES=[8020, 31777, 39696, 47615, 55534, 63453, 79291, 87210, 103048, 110967, 118886, 134724, 142643, 166400, 174319, 190157, 198076, 205995, 213914, 221833, 229752, 237671, 245590, 261428, 277266, 301023, 308942, 316861, 324780, 364375];
 // Los motores congelados rv1/rv3/rv4 (rv4 pinta también las casas rv5) solo hacen falta para casas
 // concretas de la galería y el taller, no para la portada: salen del camino crítico y se cargan
 // bajo demanda la primera vez que aparece una casa de esa versión, con copia en caché tras el arranque.
-var ASSET_V='20261110-helpers2',RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
+var ASSET_V=(function(){try{var v=document.currentScript&&new URL(document.currentScript.src).searchParams.get('v');if(v)return v}catch(e){}return '20261110-helpers2'})(),RENDERER_SRC={1:'renderer-v1.js',3:'renderer-v3.js',4:'renderer-v4.js',6:'renderer-v6.js'},RENDERER_GLOBAL={1:'CasasV1',3:'CasasV3',4:'CasasV4',6:'CasasV6'},rendererLoads={},rendererTries={};
 // Veredicto recordado solo si es 'slow' y sigue vigente: mismo build de assets y tamano de
 // rasterizado parecido (+-25%). Un 'fast' nunca se guarda: cada carga vuelve a sondear, asi
 // ninguna estimacion puntual se convierte en permiso permanente para rasterizar en grande.
@@ -162,6 +161,31 @@ function rendererReady(rv){
  return rendererLoads[need]||(rendererLoads[need]=new Promise(function(res){var s=document.createElement('script');rendererTries[need]=(rendererTries[need]||0)+1;s.src=RENDERER_SRC[need]+'?v='+ASSET_V;s.onload=res;s.onerror=function(){delete rendererLoads[need];res()};document.head.appendChild(s)}));
 }
 function rendererFor(rv){return rv===7?CasasEx:rv===1?CasasV1:rv===3?CasasV3:rv===4?CasasV4:rv===5?CasasV5:rv===6?CasasV6:CasasV2}
+// Visitor thumbnails: a live filtered SVG is rasterized once (same rasterizer as the viewer bitmaps) and the bitmap is kept in a
+// small LRU, so cards that scroll out and back in repaint from the bitmap instead of re-running the SVG filters. The viewer keeps the SVG.
+// If a raster is slow on this device (>400 ms) or fails, the card simply stays on its live SVG.
+var thumbCache={},thumbKeys=[],thumbSlow=false,thumbBusy=false;
+function thumbPx(art){var w=art.clientWidth;return w>0?Math.min(640,Math.round(w*Math.min(window.devicePixelRatio||1,3))):0}
+function thumbGet(k,px){var t=thumbCache[k];return t&&t.px===px?t.cv:null}
+function thumbPut(k,px,cv){if(!thumbCache[k])thumbKeys.push(k);thumbCache[k]={cv:cv,px:px};while(thumbKeys.length>48)delete thumbCache[thumbKeys.shift()]}
+var thumbQueue=[];
+function thumbify(k,svg,art,stillWanted){
+  if(thumbSlow||paperFailed)return;
+  thumbQueue.push({k:k,svg:svg,art:art,wanted:stillWanted});
+  if(!thumbBusy){thumbBusy=true;schedule(thumbNext)}
+}
+function thumbNext(){
+  var j=thumbQueue.shift();
+  if(!j||thumbSlow){thumbQueue=[];thumbBusy=false;return}
+  if(!viewerPaperURI){if(paperFailed){thumbQueue=[];thumbBusy=false;return}thumbQueue.unshift(j);setTimeout(thumbNext,250);return}
+  var px=thumbPx(j.art);
+  if(!px||!j.wanted()||j.svg.parentNode!==j.art){schedule(thumbNext);return}
+  makeBitmap(j.k,j.svg,px,true).then(function(cv){
+    if(lastRasterMs>400)thumbSlow=true;
+    if(cv){thumbPut(j.k,px,cv);if(j.wanted()&&j.svg.parentNode===j.art)j.art.replaceChildren(cv)}
+    if(thumbQueue.length)schedule(thumbNext);else thumbBusy=false;
+  });
+}
 var galleryObserver=null;
 function makeGalleryObserver(){
   if(galleryObserver){galleryObserver.disconnect();galleryObserver=null}
@@ -180,10 +204,12 @@ function paintCard(grid,item,index,set){
     if(!rendererAvailable(item.rv)){if(rendererFailed(item.rv)){card.remove();return}rendererReady(item.rv).then(function(){queueRender(work)});return}
     // Render in the connected offscreen host: the grid can be display:none (user left the tab) and getBBox needs layout.
     if(item.example)CasasV2.setCommunity([]);
+    var tk=item.example?null:viewerKey(item),tpx=tk?thumbPx(art):0,cached=tk&&tpx?thumbGet(tk,tpx):null;
+    if(cached){art.replaceChildren(cached);mounted=true;return}
     try{
       var tmp=document.createElement('div');viewerHost().appendChild(tmp);
       var r=rendererFor(item.rv).render(tmp,item.design,item.seed);
-      if(tmp.firstChild){art.replaceChildren(tmp.firstChild);mounted=true}
+      if(tmp.firstChild){var live=tmp.firstChild;art.replaceChildren(live);mounted=true;if(tk)thumbify(tk,live,art,function(){return mounted&&want&&card.isConnected})}
       if(tmp.remove)tmp.remove();else if(tmp.parentNode&&tmp.parentNode.removeChild)tmp.parentNode.removeChild(tmp);
     }catch(e){card.remove()}
     finally{if(item.example)CasasV2.setCommunity(COMMUNITY_LIST)}
@@ -254,7 +280,7 @@ var viewerBitmaps={},viewerBitmapKeys=[],viewerPaperURI=null,viewerPaperTried=fa
 function schedule(fn){if(window.requestIdleCallback)requestIdleCallback(fn,{timeout:400});else setTimeout(fn,80)}
 function loadViewerPaper(){
   if(viewerPaperTried)return;viewerPaperTried=true;
-  try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet)prefetchViewer();startProbe()};fr.onerror=function(){paperFailed=true};fr.readAsDataURL(b)}).catch(function(){paperFailed=true})}catch(e){paperFailed=true}
+  try{fetch('paper.png').then(function(r){return r.blob()}).then(function(b){var fr=new FileReader();fr.onload=function(){viewerPaperURI=fr.result;if(viewerSet){prefetchViewer();startProbe()}};fr.onerror=function(){paperFailed=true};fr.readAsDataURL(b)}).catch(function(){paperFailed=true})}catch(e){paperFailed=true}
 }
 function viewerPx(){var w=$('viewer-art').clientWidth;return w>0?Math.round(w*Math.min(window.devicePixelRatio||1,3)):0}
 function makeBitmap(key,svg,px,probe){
@@ -283,7 +309,7 @@ function makeBitmap(key,svg,px,probe){
 function prefetchViewer(){
   if(!viewerSet||!viewerPaperURI||rasterSlow||!probeDone)return;
   var run=++viewerPrefetchRun,px=viewerPx();if(!px)return;
-  var n=viewerSet.length,order=[0,1,-1,2,-2].filter(function(o,i,a){return Math.abs(o)<=Math.floor(n/2)||o===0}),base=viewerIndex,keys={};
+  var n=viewerSet.length,order=[0,1,-1].filter(function(o,i,a){return Math.abs(o)<=Math.floor(n/2)||o===0}),base=viewerIndex,keys={};
   var items=order.map(function(o){return viewerSet[(base+o+n*3)%n]}).filter(function(it){var k=viewerKey(it);if(keys[k])return false;keys[k]=1;return true});
   (function next(i){
     if(run!==viewerPrefetchRun||!viewerSet||i>=items.length)return;
@@ -300,7 +326,7 @@ function prefetchViewer(){
             if(cv&&run===viewerPrefetchRun&&viewerSet){
               if(!viewerBitmaps[k])viewerBitmapKeys.push(k);
               viewerBitmaps[k]={cv:cv,px:px};
-              while(viewerBitmapKeys.length>7)delete viewerBitmaps[viewerBitmapKeys.shift()];
+              while(viewerBitmapKeys.length>4)delete viewerBitmaps[viewerBitmapKeys.shift()];
               if(viewerKey(viewerSet[viewerIndex])===k)showViewerBitmap(k);
             }
             next(i+1);
@@ -330,16 +356,20 @@ function paintViewer(){
 }
 function openViewer(set,index,origin){
   if(!set.length)return;viewerSet=set;viewerIndex=index;viewerReturnFocus=origin||null;
-  var d=$('viewer');if(!d.open)d.showModal();
+  var d=$('viewer');if(!d.open){d.showModal();document.body.classList.add('viewer-open')}
   requestPaint();if(d.open)$('viewer-close').focus({preventScroll:true});
+  loadViewerPaper();if(viewerPaperURI&&!probeDone)schedule(startProbe);
 }
 function stepViewer(delta){if(!viewerSet||viewerSet.length<2)return;viewerIndex=(viewerIndex+delta+viewerSet.length)%viewerSet.length;requestPaint()}
 // Si el motor de esta casa aún no ha llegado, se pinta en cuanto carga; si ya está, se pinta al momento.
 function requestPaint(){var item=viewerSet&&viewerSet[viewerIndex];if(!item)return;if(rendererAvailable(item.rv||2))paintViewer();else rendererReady(item.rv||2).then(function(){if(viewerSet&&viewerSet[viewerIndex]===item)paintViewer()})}
 $('viewer-prev').onclick=function(){stepViewer(-1)};
 $('viewer-next').onclick=function(){stepViewer(1)};
-$('viewer-close').onclick=function(){$('viewer').close()};
-$('viewer').onclose=function(){viewerSet=null;viewerPrefetchRun++;clearTimeout(viewerPrefetchTimer);viewerBitmaps={};viewerBitmapKeys=[];if(viewerReturnFocus&&document.contains(viewerReturnFocus))viewerReturnFocus.focus()};
+function cancelViewerWork(){viewerPrefetchRun++;clearTimeout(viewerPrefetchTimer)}
+// Cancel background rasterization BEFORE closing, so nothing queued competes with the close frame.
+$('viewer-close').onclick=function(){cancelViewerWork();var t0=DIAG?performance.now():0;$('viewer').close();if(DIAG&&window.requestAnimationFrame)requestAnimationFrame(function(){requestAnimationFrame(function(){diagLog('cierre visor -> fotograma '+Math.round(performance.now()-t0)+'ms')})})};
+$('viewer').oncancel=cancelViewerWork;
+$('viewer').onclose=function(){document.body.classList.remove('viewer-open');viewerSet=null;viewerPrefetchRun++;clearTimeout(viewerPrefetchTimer);viewerBitmaps={};viewerBitmapKeys=[];if(viewerReturnFocus&&document.contains(viewerReturnFocus))viewerReturnFocus.focus()};
 $('viewer').onkeydown=function(e){if(e.key==='ArrowLeft'){e.preventDefault();stepViewer(-1)}else if(e.key==='ArrowRight'){e.preventDefault();stepViewer(1)}};
 (function(){var start=null,stage=$('viewer-stage');stage.onpointerdown=function(e){if(e.target.closest('button'))return;start={x:e.clientX,y:e.clientY}};stage.onpointerup=function(e){if(!start)return;var dx=e.clientX-start.x,dy=e.clientY-start.y;start=null;if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.4)stepViewer(dx<0?1:-1)};stage.onpointercancel=function(){start=null}})();
 function previewRv(){return designBg||layers.some(function(l){return l.pieces.some(function(p){return p.holes&&p.holes.length})})?6:5}
